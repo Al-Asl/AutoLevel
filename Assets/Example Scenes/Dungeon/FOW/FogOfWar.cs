@@ -19,6 +19,7 @@ public class FogOfWar : MonoBehaviour
         _256,
         _128
     }
+
     enum Pass
     {
         Vision,
@@ -35,7 +36,8 @@ public class FogOfWar : MonoBehaviour
     public float radius = 10f;
     public Resolution resolution;
     [Tooltip("distance of the near clip plane from vision source, useful when the vision source inside the geometry to clip the ceiling")]
-    public float NearClipFromVS = 5f;
+    public float CameraOffset = 5f;
+    public float ShadowReach = 1f;
     public Rect area;
     public List<Transform> VisionSources = new List<Transform>();
     public List<MeshFilter> Occluders = new List<MeshFilter>();
@@ -49,7 +51,6 @@ public class FogOfWar : MonoBehaviour
     public float BlendSpeed = 5;
 
     static int
-        stencil_rt_id = Shader.PropertyToID("_Stencil"),
         fow_rt_id = Shader.PropertyToID("_FOW"),
         saturate_rt_id = Shader.PropertyToID("_Saturate"),
         visionSrcWS_id = Shader.PropertyToID("_VisionSource_WS"),
@@ -65,84 +66,77 @@ public class FogOfWar : MonoBehaviour
     private Material blur_mat;
 
     private static int BlurPyramidID;
-    private RenderTexture fow;
+    private RenderTexture fow_0;
+    private RenderTexture fow_1;
 
     [ImageEffectUsesCommandBuffer]
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        if (VisionSources.Count > 0)
+        if (VisionSources.Count > 0 && Occluders.Count > 0)
         {
             buffer.Clear();
 
             buffer.SetGlobalVector(bounds_id, new Vector4(area.min.x, area.min.y, area.max.x, area.max.y));
 
-            var desc = fow.descriptor;
-            //using stencil with command buffer isn't well documented 
-            desc.graphicsFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R16_SFloat;
-            buffer.GetTemporaryRT(stencil_rt_id, desc);
-            buffer.SetRenderTarget(stencil_rt_id, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
+            var desc = fow_0.descriptor;
+            buffer.SetRenderTarget(fow_0, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
             buffer.ClearRenderTarget(false, true, Color.black);
 
             for (int i = 0; i < VisionSources.Count; i++)
                 DrawVisionSource(VisionSources[i].position, radius);
 
-            buffer.SetRenderTarget(fow, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.DontCare);
-
             buffer.SetGlobalVector(noiseParam_id, new Vector4(NoiseScale, 0, NoiseMagnitude));
             buffer.SetGlobalFloat(blendFactor_id, BlendSpeed * Time.deltaTime);
 
-            buffer.Blit(stencil_rt_id, fow, fow_mat,(int)Pass.PostProcess);
-            Saturate(fow);
-            Blur(fow);
+            buffer.Blit(fow_0, fow_1, fow_mat, (int)Pass.PostProcess);
+            buffer.Blit(fow_1, fow_0, fow_mat, (int)Pass.Saturate);
+            buffer.Blit(fow_0, fow_1, fow_mat, (int)Pass.Saturate);
 
-            buffer.ReleaseTemporaryRT(stencil_rt_id);
-            buffer.SetGlobalTexture(fow_rt_id, fow);
+            Blur(fow_0);
+
+            buffer.SetGlobalTexture(fow_rt_id, fow_0);
 
             if (mode == Mode.Overlay)
                 FOWOverlay(source, destination);
 
             Graphics.ExecuteCommandBuffer(buffer);
+
+            if (mode == Mode.BlendWithShadow)
+                Graphics.Blit(source, destination);
         }
-
-        if(mode == Mode.BlendWithShadow)
+        else
             Graphics.Blit(source, destination);
-    }
-
-    void Saturate(RenderTexture source)
-    {
-        buffer.GetTemporaryRT(saturate_rt_id, source.descriptor);
-        //the normal blit could flip the texture vertically
-        buffer.Blit(source, saturate_rt_id, fow_mat, (int)Pass.Saturate);
-        buffer.Blit(saturate_rt_id, source, fow_mat, (int)Pass.Saturate);
-        buffer.ReleaseTemporaryRT(saturate_rt_id);
     }
 
     void DrawVisionSource(Vector3 pos,float radius)
     {
-        Vector3 pos_ss = default; 
-        pos_ss.x = InvLerpUnlamp(area.min.x, area.max.x, pos.x);
-        pos_ss.y = InvLerpUnlamp(area.min.y, area.max.y, pos.z);
-        pos_ss.z = radius / area.height;
-        pos_ss *= GetResolution(resolution);
+        float dominant = Mathf.Max(area.width, area.height);
+        float texelPerUnit = GetResolution(resolution) / dominant;
+        Vector3 pos_ss = default;
+        pos_ss.x = (pos.x - area.xMin); 
+        pos_ss.y = (pos.z - area.yMin); 
+        pos_ss.z = radius;
+        pos_ss *= texelPerUnit;
         buffer.SetGlobalVector(visionSrcSS_id, pos_ss);
         buffer.SetGlobalVector(visionSrcWS_id, new Vector4(pos.x, pos.y, pos.z, radius));
+        buffer.SetGlobalVector("_FOWParams", new Vector4(ShadowReach,0.1f,0,0));
 
         float n = 0.01f;
-        float f = n + NearClipFromVS;
+        float f = n + CameraOffset;
 
         Matrix4x4 view =
-            Matrix4x4.TRS(new Vector3(area.center.x, pos.y + NearClipFromVS + n, area.center.y),
+            Matrix4x4.TRS(new Vector3(area.center.x, pos.y + f, area.center.y),
             Quaternion.LookRotation(Vector3.down, Vector3.forward),
-            Vector3.one);
+            Vector3.one).inverse;
 
         Matrix4x4 projection = default;
         projection.m00 = 2f/area.width;
         projection.m11 = -2f/area.height;
-        projection.m22 = 2f / (f - n);  
+        projection.m22 =  2f / (f - n);  
         projection.m23 = -(f + n) / (f - n);
         projection.m33 = 1f;
 
-        buffer.SetViewProjectionMatrices(view.inverse, projection);
+        buffer.SetViewProjectionMatrices(view, projection);
 
         var visionMatrix = Matrix4x4.TRS(pos,
             Quaternion.LookRotation(Vector3.up, Vector3.forward),
@@ -150,8 +144,8 @@ public class FogOfWar : MonoBehaviour
 
         buffer.DrawMesh(quad_mesh, visionMatrix, fow_mat, 0, (int)Pass.Vision);
 
-        pos.y = NearClipFromVS * 0.5f + pos.y;
-        Bounds bounds = new Bounds(pos, new Vector3(radius, NearClipFromVS, radius));
+        pos.y = CameraOffset * 0.5f + pos.y;
+        Bounds bounds = new Bounds(pos, new Vector3(radius*2, CameraOffset, radius*2));
         var cullResult = Cull(bounds);
 
         for (int i = 0; i < cullResult.Count; i++)
@@ -190,28 +184,39 @@ public class FogOfWar : MonoBehaviour
         for (int i = 1; i < MaxBlurItterations * 2; i++)
             Shader.PropertyToID("_BlurPyramid" + i);
 
-        var res = GetResolution(resolution);
+        var size = GetSize();
         var desc = new RenderTextureDescriptor()
         {
-            width = res,
-            height = res,
+            width = size.x,
+            height = size.y,
             dimension = TextureDimension.Tex2D,
-            graphicsFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R16_SNorm,
+            graphicsFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R16_SFloat,
             volumeDepth = 1,
             msaaSamples = 1,
             depthBufferBits = 0,
         };
-        fow = new RenderTexture(desc);
+        fow_0 = new RenderTexture(desc);
+        fow_1 = new RenderTexture(desc);
 
         quad_mesh = GetPrimitiveMesh(PrimitiveType.Quad);
         fow_mat = new Material(Shader.Find("Hidden/FOW"));
         buffer = new CommandBuffer() { name = "FOW" };
     }
+    
+    Vector2Int GetSize()
+    {
+        var res = GetResolution(resolution);
+        return area.width > area.height ?
+            new Vector2Int(res, (int)(area.height * res / area.width) ) :
+            new Vector2Int((int)(area.width * res / area.height) , res) ;
+    }
 
     private void OnDisable()
     {
-        fow?.Release();
-        SafeDestroy(fow);
+        fow_0?.Release();
+        fow_1?.Release();
+        SafeDestroy(fow_0);
+        SafeDestroy(fow_1);
         Shader.SetGlobalTexture(fow_rt_id, Texture2D.whiteTexture);
 
         SafeDestroy(blur_mat);
@@ -225,7 +230,7 @@ public class FogOfWar : MonoBehaviour
         if (BlurItterations < 1)
             return;
 
-        var dsec = fow.descriptor;
+        var dsec = fow_0.descriptor;
         int height = GetResolution(resolution) / 2;
         int fromId = 0, toId = BlurPyramidID + 1;
         int i;
@@ -285,11 +290,6 @@ public class FogOfWar : MonoBehaviour
         return 0;
     }
 
-    float InvLerpUnlamp(float a, float b, float v)
-    {
-        return (v - a) / (b - a);
-    }
-
     public List<MeshFilter> Cull(Bounds bounds)
     {
         var renderers = new List<MeshFilter>();
@@ -300,8 +300,6 @@ public class FogOfWar : MonoBehaviour
         }
         return renderers;
     }
-
-    Vector3 SetY(Vector3 vec, float value) { vec.y = value; return vec; }
 
     Mesh GetPrimitiveMesh(PrimitiveType primitive)
     {
@@ -329,9 +327,9 @@ public class FogOfWar : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(new Vector3(area.min.x, NearClipFromVS, area.min.y), new Vector3(area.max.x, NearClipFromVS, area.min.y));
-        Gizmos.DrawLine(new Vector3(area.max.x, NearClipFromVS, area.min.y), new Vector3(area.max.x, NearClipFromVS, area.max.y));
-        Gizmos.DrawLine(new Vector3(area.max.x, NearClipFromVS, area.max.y), new Vector3(area.min.x, NearClipFromVS, area.max.y));
-        Gizmos.DrawLine(new Vector3(area.min.x, NearClipFromVS, area.max.y), new Vector3(area.min.x, NearClipFromVS, area.min.y));
+        Gizmos.DrawLine(new Vector3(area.min.x, CameraOffset, area.min.y), new Vector3(area.max.x, CameraOffset, area.min.y));
+        Gizmos.DrawLine(new Vector3(area.max.x, CameraOffset, area.min.y), new Vector3(area.max.x, CameraOffset, area.max.y));
+        Gizmos.DrawLine(new Vector3(area.max.x, CameraOffset, area.max.y), new Vector3(area.min.x, CameraOffset, area.max.y));
+        Gizmos.DrawLine(new Vector3(area.min.x, CameraOffset, area.max.y), new Vector3(area.min.x, CameraOffset, area.min.y));
     }
 }

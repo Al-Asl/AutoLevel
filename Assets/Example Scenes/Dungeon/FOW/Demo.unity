@@ -921,8 +921,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mode: 0
   radius: 10
-  resolution: 1
-  NearClipFromVS: 5
+  resolution: 4
+  CameraOffset: 5
+  ShadowReach: 1
   area:
     serializedVersion: 2
     x: -20
@@ -940,9 +941,9 @@ MonoBehaviour:
   - {fileID: 1481871345}
   - {fileID: 196712691}
   - {fileID: 1422430232}
-  NoiseScale: 50
-  NoiseMagnitude: 2
-  BlurItterations: 2
+  NoiseScale: 20
+  NoiseMagnitude: 0.002
+  BlurItterations: 1
   BlendSpeed: 5
 --- !u!1 &409308431
 GameObject:

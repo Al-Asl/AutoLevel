@@ -37,7 +37,6 @@ Shader "Hidden/FOW"
             Name "Occluder"
 
             Blend one one
-            BlendOp RevSub
             Cull front
 
             CGPROGRAM
@@ -50,7 +49,7 @@ Shader "Hidden/FOW"
 
             float frag(v2f i) : SV_Target
             {
-                return step(length(i.vertex.xy - _VisionSource_SS.xy),_VisionSource_SS.z);
+                return -step(length(i.vertex.xy - _VisionSource_SS.xy),_VisionSource_SS.z);
             }
 
             ENDCG
@@ -76,8 +75,8 @@ Shader "Hidden/FOW"
                 i.uv.y = 1 - i.uv.y;
                 #endif
                 float3 n = sdnoise(i.uv * _NoiseParam.x + _NoiseParam.y)* _NoiseParam.z;
-                float s = _Stencil.Load(int3(floor(i.uv.x* _Stencil_TexelSize.z + n.y),floor(i.uv.y* _Stencil_TexelSize.w + n.z),0)).r;
-                float v = step(0.00001, s);
+                float s = tex2D(_MainTex, i.uv + n.yz);
+                float v = step(0.00001,s);
                 return (v * 2 - 1) * _BlendFactor;
             }
 

@@ -1,54 +1,59 @@
 ﻿using System;
 using System.Collections.Generic;
 
-[System.Serializable]
-public struct ListSlice<T>
+namespace AutoLevel
 {
-    public int Count, Start;
-    [UnityEngine.SerializeReference]
-    List<T> list;
 
-    public ListSlice(List<T> list, int start, int count)
+    [System.Serializable]
+    public struct ListSlice<T>
     {
-        this.list = list;
-        this.Start = start;
-        this.Count = count;
-        if (Count > list.Count) Count = list.Count;
-    }
+        public int Count, Start;
+        [UnityEngine.SerializeReference]
+        List<T> list;
 
-    public ListSlice(List<T> list)
-    {
-        this.list = list;
-        this.Start = 0;
-        this.Count = list.Count;
-    }
-
-    public ListSlice<T> GetSlice(int start, int end)
-    {
-        return new ListSlice<T>(list, Start + start, end - start);
-    }
-
-    public List<T> GetList()
-    {
-        return list;
-    }
-
-    public T this[int i]
-    {
-        get
+        public ListSlice(List<T> list, int start, int count)
         {
-            return list[i + Start];
+            this.list = list;
+            this.Start = start;
+            this.Count = count;
+            if (Count > list.Count) Count = list.Count;
         }
-        set
+
+        public ListSlice(List<T> list)
         {
-            list[i + Start] = value;
+            this.list = list;
+            this.Start = 0;
+            this.Count = list.Count;
         }
+
+        public ListSlice<T> GetSlice(int start, int end)
+        {
+            return new ListSlice<T>(list, Start + start, end - start);
+        }
+
+        public List<T> GetList()
+        {
+            return list;
+        }
+
+        public T this[int i]
+        {
+            get
+            {
+                return list[i + Start];
+            }
+            set
+            {
+                list[i + Start] = value;
+            }
+        }
+
+        public void Swap(int i, int j)
+        {
+            list.Swap(i, j);
+        }
+
+        public static implicit operator ListSlice<T>(List<T> list) => new ListSlice<T>(list);
     }
 
-    public void Swap(int i, int j)
-    {
-        list.Swap(i, j);
-    }
-
-    public static implicit operator ListSlice<T>(List<T> list) => new ListSlice<T>(list);
 }

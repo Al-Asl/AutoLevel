@@ -1,104 +1,60 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
-public class BlockData
+namespace AutoLevel
 {
-    public BlockResources resource;
-    public BlockConnection connections;
-    public float weight;
-}
 
-[AddComponentMenu("AutoLevel/BlockAsset")] [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class BlockAsset : MonoBehaviour
-{
-    [SerializeField]
-    public List<int> groups = new List<int>();
-    [SerializeField]
-    public List<BlockVariant> variants = new List<BlockVariant>();
-
-    public BlockData GetBlockData(BlockVariant variant) =>  GetBlockData(gameObject, variant);
-    public int GetBlockDataHash(BlockVariant variant) => GetBlockDataHash(gameObject, variant);
-
-    private static Mesh GenerateMesh(Mesh mesh, List<VariantAction> actions)
+    [AddComponentMenu("AutoLevel/BlockAsset")]
+    [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
+    public class BlockAsset : MonoBehaviour
     {
-        var m = Instantiate(mesh);
-        m.hideFlags = HideFlags.DontUnloadUnusedAsset;
-
-        for (int i = 0; i < actions.Count; i++)
-            MeshUtility.ApplyAction(actions[i], m);
-        m.RecalculateBounds();
-        m.RecalculateTangents();
-
-        return m;
-    }
-
-    private static Mesh GetMesh(GameObject gameObject)
-    {
-        var mf = gameObject == null ? null : gameObject.GetComponent<MeshFilter>();
-        return mf == null ? null : mf.sharedMesh;
-    }
-
-    public static int GetBlockDataHash(GameObject gameObject, BlockVariant variant)
-    {
-        var mesh = GetMesh(gameObject);
-        var meshHash = mesh == null ? 0 : mesh.GetHashCode();
-        return new XXHash().Append(meshHash).Append(variant.GetHashCode());
-    }
-
-    public static BlockData GetBlockData(GameObject gameObject,BlockVariant variant)
-    {
-        var mr = gameObject == null ? null : gameObject.GetComponent<MeshRenderer>();
-
-        var connections = new BlockConnection();
-        for (int k = 0; k < 6; k++)
-            connections[k] = variant[k];
-
-        Mesh mesh = GetMesh(gameObject);
-        Mesh meshVariant = null;
-        if (mesh != null)
+        [Serializable]
+        public class VariantDesc
         {
-            meshVariant = GenerateMesh(mesh, variant.actions);
-            meshVariant.name = meshVariant.name + variant.GetActionPrefix();
-        }
+            public BigBlockAsset bigBlock;
+            public List<BlockAction> actions = new List<BlockAction>();
+            public SideIds sideIds = new SideIds();
+            public int fill = 0;
+            public float weight = 1f;
 
-        return new BlockData()
-        {
-            resource = new BlockResources()
+#if UNITY_EDITOR
+            [HideInInspector, SerializeField]
+            public Vector3 position_editor_only;
+#endif
+
+            public VariantDesc()
             {
-                mesh = meshVariant,
-                material = mr == null ? null  : mr.sharedMaterial,
-            },
-            connections = connections,
-            weight = variant.weight
-        };
-    }
+                actions = new List<BlockAction>();
+            }
 
-    public static void IterateVariants(ListSlice<BlockAsset> blockAssets, System.Action<VariantRef> excute
-        , bool includeInactive = true)
-    {
-        for (int i = 0; i < blockAssets.Count; i++)
+            public VariantDesc(VariantDesc other)
+            {
+#if UNITY_EDITOR
+                position_editor_only = other.position_editor_only;
+#endif
+                actions = new List<BlockAction>(other.actions);
+                fill = other.fill;
+                sideIds = other.sideIds;
+            }
+        }
+
+        [SerializeField]
+        public List<int> groups = new List<int>();
+        [SerializeField]
+        public List<int> actionsGroups = new List<int>();
+        [SerializeField]
+        public List<VariantDesc> variants = new List<VariantDesc>();
+
+        public static IEnumerable<AssetBlock> GetBlocksEnum(IEnumerable<BlockAsset> assets, bool includeInactive = true)
         {
-            var block = blockAssets[i];
-            if (!includeInactive && !block.gameObject.activeSelf)
-                continue;
-            var variantsCount = block.variants.Count;
-            for (int j = 0; j < variantsCount; j++)
-                excute(new VariantRef(block, j));
+            foreach (var asset in assets)
+                for (int i = 0; i < asset.variants.Count; i++)
+                    if (asset.gameObject.activeInHierarchy || includeInactive)
+                        yield return new AssetBlock(i, asset);
         }
     }
 
-    public static void IterateVariants(BlockAsset[] blockAssets, System.Action<VariantRef> excute
-    , bool includeInactive = true)
-    {
-        for (int i = 0; i < blockAssets.Length; i++)
-        {
-            var block = blockAssets[i];
-            if (!includeInactive && !block.gameObject.activeSelf)
-                continue;
-            var variantsCount = block.variants.Count;
-            for (int j = 0; j < variantsCount; j++)
-                excute(new VariantRef(block, j));
-        }
-    }
 }

@@ -14,7 +14,7 @@ namespace AutoLevel
     [CustomEditor(typeof(LevelBuilder))]
     public class LevelBuilderEditor : Editor
     {
-        class SO : BaseSO<LevelBuilder>
+        public class SO : BaseSO<LevelBuilder>
         {
             public BlocksRepo blockRepo;
 
@@ -528,33 +528,23 @@ namespace AutoLevel
 
         private void ExportMesh()
         {
-            var path = EditorUtility.SaveFilePanel("Mesh Export", Application.dataPath, "level ", "fbx");
+            var path = EditorUtility.SaveFilePanelInProject("Mesh Export", "level ", "fbx", "Mesh Export");
             if (string.IsNullOrEmpty(path))
                 return;
             if (System.IO.File.Exists(path))
                 System.IO.File.Delete(path);
 
-            using (LevelMeshBuilder mbuilder = new LevelMeshBuilder(builder.levelData, this.repo, settings.ExportSize))
-            {
-                mbuilder.Rebuild(new BoundsInt(Vector3Int.zero, builder.levelData.bounds.size));
-                ModelExporter.ExportObject(path, mbuilder.root.gameObject);
-            }
+            AutoLevelEditorUtility.ExportMesh(builder, repo, path,settings.ExportSize);
         }
         private void ExportGameObjects()
         {
-            var path = EditorUtility.SaveFilePanel("Mesh Export", Application.dataPath, "level objects ", "prefab");
+            var path = EditorUtility.SaveFilePanelInProject("Objects Export", "level objects ", "prefab", "Objects Export");
             if (string.IsNullOrEmpty(path))
                 return;
             if (System.IO.File.Exists(path))
                 System.IO.File.Delete(path);
 
-            using (var objectsBuilder = new LevelObjectsBuilder(builder.levelData, repo))
-            {
-                var bounds = builder.levelData.bounds;
-                bounds.position = Vector3Int.zero;
-                objectsBuilder.Rebuild(bounds);
-                PrefabUtility.SaveAsPrefabAsset(objectsBuilder.root.gameObject, path);
-            }
+            AutoLevelEditorUtility.ExportObjects(builder, repo, path);
         }
 
 

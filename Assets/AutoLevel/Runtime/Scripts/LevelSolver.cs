@@ -145,6 +145,7 @@ namespace AutoLevel
         private Stack<Possibility> stack;
         private GroupInteractionHandler interactionHandler;
         private IEnumerable<Vector3Int> SolverVolume => SpatialUtil.Enumerate(solveBounds.size);
+        private System.Random rand;
         private ILevelBoundary[] boundaries = new ILevelBoundary[6];
 
 
@@ -197,8 +198,9 @@ namespace AutoLevel
         }
 
 
-        public int Solve(BoundsInt bounds, int iteration = 10)
+        public int Solve(BoundsInt bounds, int iteration = 10 , int seed = 0)
         {
+            rand = new System.Random(seed + (int)DateTime.Now.Ticks);
             solveBounds = bounds;
             if (solveBounds.size.x > size.x || solveBounds.size.y > size.y || solveBounds.size.z > size.z)
                 throw new System.Exception("solving bounds need to be smaller than solver size");
@@ -368,6 +370,7 @@ namespace AutoLevel
             float minEntropy = float.MaxValue;
             Vector3Int minIndex = -Vector3Int.one;
 
+
             foreach (var index in SolverVolume)
             {
                 int pCount = wave[index.z, index.y, index.x].Count;
@@ -380,7 +383,7 @@ namespace AutoLevel
                 if (pCount > 1)
                 {
                     float entropy = Mathf.Log(weights[index.z, index.y, index.x]) +
-                        1E-4f * UnityEngine.Random.value;
+                        1E-4f * GetNextRand();
                     if (entropy < minEntropy)
                     {
                         minEntropy = entropy;
@@ -410,8 +413,6 @@ namespace AutoLevel
 
         int StablePick(int[] blocks)
         {
-            return Pick(blocks);
-
             float invBCount = 1f / blocksCount;
             float invWeightsSum = 1f / weightsSum;
 
@@ -444,7 +445,7 @@ namespace AutoLevel
             float sum = 0;
             for (int i = 0; i < blocks.Length; i++)
                 sum += repo.GetBlockWeight(blocks[i]);
-            var r = UnityEngine.Random.value * sum;
+            var r = GetNextRand() * sum;
             sum = 0;
             for (int i = 0; i < blocks.Length; i++)
             {
@@ -453,6 +454,11 @@ namespace AutoLevel
                     return i;
             }
             return blocks.Length - 1;
+        }
+
+        float GetNextRand()
+        {
+            return rand.Next(0, 100000) * 0.00001f;
         }
 
         private void Propagate()

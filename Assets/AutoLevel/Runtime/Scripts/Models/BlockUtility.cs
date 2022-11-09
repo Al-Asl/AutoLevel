@@ -49,7 +49,7 @@ namespace AutoLevel
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(actions));
             else
-                return new XXHash().Append(block.baseMesh.GetHashCode()).
+                return new XXHash().Append(block.baseMesh.name.GetHashCode()).
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(actions));
         }

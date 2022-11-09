@@ -2,7 +2,6 @@
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
-using Codice.CM.Common;
 
 namespace AutoLevel
 {

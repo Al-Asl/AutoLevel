@@ -47,8 +47,7 @@ namespace AutoLevel
         public static ButtonHandle Button { get; private set; }
         public static DragHandle Drag { get; private set; }
 
-        [InitializeOnLoadMethod]
-        static void Intialize()
+        static HandleEx()
         {
             quadMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Quad);
             sphereMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Sphere);

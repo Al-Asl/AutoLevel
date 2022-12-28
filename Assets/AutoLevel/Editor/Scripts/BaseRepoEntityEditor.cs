@@ -45,6 +45,16 @@ namespace AutoLevel
                 this.block = block;
                 this.d = d;
             }
+
+            public static bool operator == (BlockSide a,BlockSide b)
+            {
+                return a.block.GetHashCode() == b.block.GetHashCode() && a.d == b.d;
+            }
+
+            public static bool operator !=(BlockSide a, BlockSide b)
+            {
+                return a.block.GetHashCode() != b.block.GetHashCode() || a.d != b.d;
+            }
         }
 
         protected static InitializeCommand initializeCommand = new InitializeCommand();
@@ -215,7 +225,17 @@ namespace AutoLevel
 
             connections.Clear();
             ConnectionsUtility.GetConnectionsList(blocks, connections);
+
+            int index = 0;
+            for (int i = 0; i < connections.Count; i++)
+            {
+                var conn = connections[i];
+                if (conn.a.baseIds[conn.d] != 0)
+                    connections.Swap(index++,i);
+            }
+
         }
+
         protected void IntegrityCheck()
         {
             foreach (var entity in allRepoEntities)
@@ -612,7 +632,8 @@ namespace AutoLevel
             var st = directions[con.d];
             var e = GetBlockPosition(con.b) + origins[opposite[con.d]];
             var et = directions[opposite[con.d]];
-            Handles.DrawBezier(s, e, s + st, e + et, color, null, 2f);
+            var id = con.a.baseIds[con.d];
+            Handles.DrawBezier(s, e, s + st, e + et, color, null,id == 0 ? 2f : 4f);
         }
 
         protected void DoSideConnection(BlockSide src, Vector3 position, System.Action OnConnect)
@@ -622,7 +643,7 @@ namespace AutoLevel
             Handles.DrawDottedLine(
                 GetSideCenter(position, src.d),
                 HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).GetPoint(10f)
-                , 1f);
+                , 4f);
 
             if (shiftHold)
             {
@@ -707,17 +728,15 @@ namespace AutoLevel
             List<(BlockSide, int)> writeOps = new List<(BlockSide, int)>();
 
             var allBlocks = BlockAsset.GetBlocksEnum(allBlockAssets);
-            var hashes = ConnectionsUtility.GetListOfSortedIds(allBlocks);
-            var allConnections = new List<Connection>();
-            ConnectionsUtility.GetConnectionsList(allBlocks, allConnections);
 
             var aId = src.id;
             var bId = dst.id;
-            bool isAConnected = aId != 0 && allConnections.FindIndex((con) => con.a[con.d] == src.compsiteId) > -1;
-            bool isBConnected = bId != 0 && allConnections.FindIndex((con) => con.a[con.d] == dst.compsiteId) > -1;
+            bool isAConnected = IsConnected(src, allBlocks);
+            bool isBConnected = IsConnected(dst, allBlocks); ;
 
             if (!isAConnected && !isBConnected)
             {
+                var hashes = ConnectionsUtility.GetListOfSortedIds(allBlocks);
                 var next = ConnectionsUtility.GetNextId(hashes);
                 writeOps.Add((src, next));
                 writeOps.Add((dst, next));
@@ -734,10 +753,11 @@ namespace AutoLevel
             {
                 foreach (var block in allBlocks)
                 {
-                    if (block.baseIds[src.d] == bId)
-                        writeOps.Add((new BlockSide(block, src.d), aId));
-                    if (block.baseIds[dst.d] == bId)
-                        writeOps.Add((new BlockSide(block, dst.d), aId));
+                    for (int d = 0; d < 6; d++)
+                    {
+                        if (block.baseIds[d] == bId)
+                            writeOps.Add((new BlockSide(block,d), aId));
+                    }
                 }
             }
 
@@ -753,6 +773,24 @@ namespace AutoLevel
                 so.Dispose();
             }
             Repaint();
+        }
+
+        protected bool IsConnected(BlockSide blockSide, IEnumerable<AssetBlock> allBlocks)
+        {
+            if (blockSide.id == 0) return false;
+
+            var id = blockSide.id;
+            foreach(var block in allBlocks)
+            {
+                for (int d = 0; d < 6; d++)
+                {
+                    if (id == block.baseIds[d] &&
+                        (new BlockSide(block, d) != blockSide))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         protected Color GetColor(int id)

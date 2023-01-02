@@ -6,6 +6,8 @@ namespace AutoLevel
 
     public class BiDirectionalList<T> : IEnumerable<T>
     {
+        public int Count => forward.Count;
+
         private List<T> forward;
         private Dictionary<T, int> reverse;
 
@@ -37,6 +39,8 @@ namespace AutoLevel
             for (int i = 0; i < forward.Count; i++)
                 reverse[forward[i]] = i;
         }
+
+        public List<T> GetList() => forward;
 
         public void Add(T element)
         {

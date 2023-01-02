@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Examples/Scenes/Dungeon/Dengeon.unity
+    path: Assets/Example Scenes/Dungeon/Dengeon.unity
     guid: 717ba9d7fada6d740a34cca575981093
   m_configObjects: {}

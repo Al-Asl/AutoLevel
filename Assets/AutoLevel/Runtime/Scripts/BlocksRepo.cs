@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using System.Collections;
 using System.Linq;
 
 namespace AutoLevel
@@ -28,7 +27,9 @@ namespace AutoLevel
     public partial class BlocksRepo : MonoBehaviour
     {
         [SerializeField]
-        private List<string> userGroups = new List<string>();
+        private List<string> groups = new List<string>();
+        [SerializeField]
+        private List<string> weightGroups = new List<string>();
         [SerializeField]
         private List<ActionsGroup> actionsGroups = new List<ActionsGroup>();
 
@@ -46,14 +47,20 @@ namespace AutoLevel
 
         public List<string> GetAllGroupsNames()
         {
-            var list = new List<string>() {
-            EMPTY_GROUP,
-            SOLID_GROUP,
-            BASE_GROUP };
-            list.AddRange(userGroups);
+            var list = GetBaseGroups();
+            list.AddRange(groups);
             return list;
         }
 
-        public Runtime CreateRuntime() => new Runtime(transform, GetAllGroupsNames(), actionsGroups);
+        public List<string> GetAllWeightGroupsNames()
+        {
+            var list = GetBaseGroups();
+            list.AddRange(weightGroups);
+            return list;
+        }
+
+        private List<string> GetBaseGroups() => new List<string>() { EMPTY_GROUP, SOLID_GROUP, BASE_GROUP };
+
+        public Runtime CreateRuntime() => new Runtime(transform, GetAllGroupsNames(), GetAllWeightGroupsNames(), actionsGroups);
     }
 }

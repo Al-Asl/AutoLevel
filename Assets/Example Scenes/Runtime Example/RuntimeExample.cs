@@ -29,8 +29,7 @@ public class RuntimeExample : MonoBehaviour
         solver.SetlevelData(levelData);
 
         //set the bottom boundary
-        solver.SetBoundary(
-            new GroupsBoundary(runtimeRepo.GetGroupIndex(BlocksRepo.SOLID_GROUP)), Direction.Down);
+        solver.SetGroupBoundary(BlocksRepo.SOLID_GROUP, Direction.Down);
     }
 
     private void OnDisable()

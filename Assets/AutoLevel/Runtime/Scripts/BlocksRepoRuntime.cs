@@ -12,19 +12,16 @@ namespace AutoLevel
             protected IEnumerator<int> groups;
             protected Runtime repo;
 
-            protected List<int> groupBlocks;
+            protected Vector2Int groupRange;
             protected int blockIndex = -1;
 
             public GroupsEnumerator(InputWaveCell wave, Runtime repo)
             {
                 this.repo = repo;
-                groups = null;
-                SetWave(wave);
+                groups = wave.GroupsEnum(repo.GroupsCount).GetEnumerator();
             }
 
-            public void SetWave(InputWaveCell wave) => groups = wave.GroupsEnum(repo.GroupsCount).GetEnumerator();
-
-            public int Current => groupBlocks[blockIndex];
+            public int Current => blockIndex;
             object IEnumerator.Current => Current;
 
             public void Dispose() { }
@@ -33,20 +30,21 @@ namespace AutoLevel
 
             public virtual bool MoveNext()
             {
-                while (groupBlocks == null || ++blockIndex >= groupBlocks.Count)
+                blockIndex++;
+                while (blockIndex >= groupRange.y || groupRange.y == 0)
                 {
                     if (!groups.MoveNext())
                         return false;
-                    groupBlocks = repo.BlocksPerGroup[groups.Current];
-                    blockIndex = -1;
+                    groupRange = repo.GetGroupRange(groups.Current);
+                    blockIndex = groupRange.x;
                 }
                 return true;
             }
 
             public virtual void Reset()
             {
-                blockIndex = -1;
-                groupBlocks = null;
+                groupRange = Vector2Int.zero;
+                groups.Reset();
             }
 
             IEnumerator IEnumerable.GetEnumerator()
@@ -55,45 +53,14 @@ namespace AutoLevel
             }
         }
 
-        class GroupsDistinctEnumerator : GroupsEnumerator
-        {
-            bool[] occurrence;
-
-            public GroupsDistinctEnumerator(InputWaveCell wave, Runtime repo) : base(wave, repo)
-            {
-                occurrence = new bool[repo.BlocksCount];
-            }
-
-            public override bool MoveNext()
-            {
-                while (groupBlocks == null || ++blockIndex >= groupBlocks.Count)
-                {
-                    if (!groups.MoveNext())
-                        return false;
-                    groupBlocks = repo.BlocksPerGroup[groups.Current];
-                    blockIndex = -1;
-                }
-                if (occurrence[Current])
-                    return MoveNext();
-                occurrence[Current] = true;
-                return true;
-            }
-
-            public override void Reset()
-            {
-                base.Reset();
-                occurrence.Fill(() => false);
-            }
-        }
-
         public class Runtime : System.IDisposable
         {
-            private class GameObjectTemplate
+            private class BlockGOTemplate
             {
                 public GameObject gameObject;
                 public List<BlockAction> actions;
 
-                public GameObjectTemplate(GameObject gameObject, List<BlockAction> actions)
+                public BlockGOTemplate(GameObject gameObject, List<BlockAction> actions)
                 {
                     this.gameObject = gameObject;
                     this.actions = actions;
@@ -101,20 +68,15 @@ namespace AutoLevel
 
                 public GameObject Create()
                 {
-                    if (gameObject != null)
-                    {
-                        var go = Instantiate(gameObject);
-                        go.name = gameObject.name;
-                        go.SetActive(true);
-                        go.transform.position = Vector3.zero;
-                        AplyActions(go, actions);
+                    var go = Instantiate(gameObject);
+                    go.name = gameObject.name;
+                    go.SetActive(true);
+                    go.transform.position = Vector3.zero;
+                    AplyActions(go, actions);
 
-                        var root = new GameObject(gameObject.name);
-                        go.transform.SetParent(root.transform);
-                        return root;
-                    }
-                    else
-                        return null;
+                    var root = new GameObject(gameObject.name);
+                    go.transform.SetParent(root.transform);
+                    return root;
                 }
 
                 public void AplyActions(GameObject go, List<BlockAction> actions)
@@ -122,30 +84,28 @@ namespace AutoLevel
                     foreach (var action in actions)
                         ActionsUtility.ApplyAction(go, action);
                 }
-
-
             }
 
-            private class BlocksGameObjectGenerator
+            private class BlockGOTemplateGenerator
             {
                 private Dictionary<GameObject, GameObject> map =
                     new Dictionary<GameObject, GameObject>();
                 private List<Component> components = new List<Component>();
                 public GameObject root { get; private set; }
 
-                public BlocksGameObjectGenerator()
+                public BlockGOTemplateGenerator()
                 {
                     root = new GameObject("blocks_gameobjects");
                     root.hideFlags = HideFlags.HideAndDontSave;
                 }
 
-                public GameObject Generate(GameObject original)
+                public BlockGOTemplate Generate(GameObject original,List<BlockAction> actions)
                 {
                     if (original == null)
                         return null;
 
                     if (map.ContainsKey(original))
-                        return map[original];
+                        return map[original] == null ? null : new BlockGOTemplate(map[original], actions);
                     else
                     {
                         var go = Instantiate(original);
@@ -156,15 +116,16 @@ namespace AutoLevel
                         RemoveComponenet<MeshRenderer>(go);
 
                         Strip(go);
-                        if (go != null)
-                        {
-                            map[original] = go;
-                            go.hideFlags = HideFlags.HideAndDontSave;
-                            go.SetActive(false);
-                            go.transform.SetParent(root.transform);
-                        }
+                        map[original] = go;
 
-                        return go;
+                        if (go == null)
+                            return null;
+
+                        go.hideFlags = HideFlags.HideAndDontSave;
+                        go.SetActive(false);
+                        go.transform.SetParent(root.transform);
+
+                        return new BlockGOTemplate(go, actions);
                     }
                 }
 
@@ -210,18 +171,15 @@ namespace AutoLevel
                 List<ActionsGroup> actionsGroups;
                 Dictionary<int, int> actionsToIndex;
 
-                public BlockAssetGenerator(List<ActionsGroup> actionsGroups)
+                public BlockAssetGenerator(List<ActionsGroup> actionsGroups, Dictionary<int, int> actionsToIndex)
                 {
                     this.actionsGroups= actionsGroups;
-
-                    actionsToIndex = new Dictionary<int, int>();
-                    for (int i = 0; i < actionsGroups.Count; i++)
-                        actionsToIndex.Add(actionsGroups[i].name.GetHashCode(), i);
+                    this.actionsToIndex= actionsToIndex;
                 }
 
-                public void Generate(IEnumerable<BlockAsset> assets, List<IBlock> blocks)
+                public void Generate(IEnumerable<BlockAsset> blockAssets, List<IBlock> outputList)
                 {
-                    foreach (var block in BlockAsset.GetBlocksEnum(assets))
+                    foreach (var block in BlockAsset.GetBlocksEnum(blockAssets))
                     {
                         if (block.bigBlock != null)
                             continue;
@@ -235,17 +193,17 @@ namespace AutoLevel
                             {
                                 if (!actionsToIndex.ContainsKey(groupHash))
                                     continue;
-                                var group = this.actionsGroups[actionsToIndex[groupHash]];
+                                var ActionsGroup = this.actionsGroups[actionsToIndex[groupHash]];
 
-                                foreach (var actionsGroup in group.groupActions)
+                                foreach (var GroupActions in ActionsGroup.groupActions)
                                 {
                                     var newBlock = block.CreateCopy();
-                                    newBlock.ApplyActions(actionsGroup.actions);
-                                    blocks.Add(newBlock);
+                                    newBlock.ApplyActions(GroupActions.actions);
+                                    outputList.Add(newBlock);
                                 }
                             }
                         }
-                        blocks.Add(block);
+                        outputList.Add(block);
                     }
                 }
             }
@@ -257,15 +215,12 @@ namespace AutoLevel
                 private Dictionary<int, int> connectionsMap;
                 private LinkedList<int> ids;
 
-                public BigBlockAssetGenerator(List<ActionsGroup> actionsGroups, LinkedList<int> ids)
+                public BigBlockAssetGenerator(List<ActionsGroup> actionsGroups, Dictionary<int, int> actionsToIndex, LinkedList<int> ids)
                 {
                     this.actionsGroups = actionsGroups;
+                    this.actionsToIndex = actionsToIndex;
                     this.ids = ids;
                     connectionsMap = new Dictionary<int, int>();
-
-                    actionsToIndex = new Dictionary<int, int>();
-                    for (int i = 0; i < actionsGroups.Count; i++)
-                        actionsToIndex.Add(actionsGroups[i].name.GetHashCode(), i);
                 }
 
                 public void Generate(IEnumerable<BigBlockAsset> assets, List<IBlock> blocks)
@@ -349,17 +304,17 @@ namespace AutoLevel
 
             private BiDirectionalList<int> BlocksHash;
             private List<BlockResources> Resources;
-            private List<GameObjectTemplate> gameObjecststemplates = new List<GameObjectTemplate>();
+            private List<BlockGOTemplate> gameObjecstsTemplates = new List<BlockGOTemplate>();
 
-            private List<float> Weights;
+            private List<int> groupStartIndex;
+
+            private List<float> weights;
             private List<float> baseWeights;
+            private List<float> groupWeights;
+            private List<int>[] blocksPerWeightGroup;
 
-
-            private List<string> GroupsNames;
-            private BiDirectionalList<int> groupsHash;
-            public List<List<int>> BlocksPerGroup { get; private set; }
-            public List<float> groupWeights { get; private set; }
-
+            private BiDirectionalList<string> groups;
+            private BiDirectionalList<string> weightGroups;
 
             public List<int[]>[] Connections { get; private set; }
             /// <summary>
@@ -367,36 +322,53 @@ namespace AutoLevel
             /// </summary>
             public int[][][][] groupCounter { get; private set; }
 
-
             public int BlocksCount => Resources.Count;
             public bool ContainsBlock(int hash) => BlocksHash.Contains(hash);
             public int GetBlockHash(int index) => BlocksHash[index];
             public int GetBlockIndex(int hash) => BlocksHash.GetIndex(hash);
             public BlockResources GetBlockResourcesByHash(int hash) => Resources[BlocksHash.GetIndex(hash)];
             public BlockResources GetBlockResources(int index) => Resources[index];
-            public GameObject CreateGameObject(int index) => gameObjecststemplates[index].Create();
-            public float GetBlockWeight(int blockIndex) => Weights[blockIndex];
+            public GameObject CreateGameObject(int index)
+            {
+                var template = gameObjecstsTemplates[index];
+                return template != null ? template.Create() : null;
+            }
+            public float GetBlockWeight(int blockIndex) => weights[blockIndex];
 
-            public int GroupsCount => GroupsNames.Count;
-            public string GetGroupName(int index) => GroupsNames[index];
-            public bool ContainsGroup(int hash) => groupsHash.Contains(hash);
-            public int GetGroupHash(int index) => groupsHash[index];
-            public int GetGroupIndex(int hash) => groupsHash.GetIndex(hash);
-            public int GetGroupIndex(string name) => groupsHash.GetIndex(name.GetHashCode());
-            public IEnumerable<int> GetAllGroups() => groupsHash;
+            /// Groups ///
+            public int GroupsCount => groups.Count;
+            public string GetGroupName(int index) => groups[index];
+            public bool ContainsGroup(string name) => groups.GetList().Contains(name);
+            public int GetGroupHash(int index) => groups[index].GetHashCode();
+            public int GetGroupIndex(string name) => groups.GetIndex(name);
+            public int GetGroupIndex(int hash) => groups.GetList().FindIndex((e) => e.GetHashCode() == hash);
+            public float GetGroupWeight(int index) => groupWeights[index];
+
+            /// Weight Groups ///
+            public int WeightGroupsCount => weightGroups.Count;
+            public string GetWeightGroupName(int index) => weightGroups[index];
+            public bool ContainsWeightGroup(string name) => weightGroups.GetList().Contains(name);
+            public int GetWeightGroupHash(int index) => weightGroups[index].GetHashCode();
+            public int GetWeightGroupIndex(string name) => weightGroups.GetIndex(name);
 
             public GroupsEnumerator GetGroupsEnumerable(InputWaveCell wave) => new GroupsEnumerator(wave, this);
-            public GroupsEnumerator GetDistinctGroupsEnumerable() => new GroupsDistinctEnumerator(default, this);
 
-            public Runtime(Transform root, List<string> GroupsNames, List<ActionsGroup> actionsGroups)
+            public Vector2Int GetGroupRange(int index)
             {
-                this.GroupsNames = GroupsNames;
+                return new Vector2Int(groupStartIndex[index],
+                    index == groups.Count - 1 ? BlocksCount : groupStartIndex[index + 1]);
+            }
+
+            public Runtime(Transform root, List<string> GroupsNames, List<string> WeightGroupsNames, List<ActionsGroup> actionsGroups)
+            {
+                groups = new BiDirectionalList<string>(GroupsNames);
+                weightGroups = new BiDirectionalList<string>(WeightGroupsNames);
+
                 this.actionsGroups = actionsGroups;
                 this.root = root;
 
-                List<SideIds> BlockConnections = new List<SideIds>();
+                List<ConnectionsIds> BlockConnections = new List<ConnectionsIds>();
 
-                GenerateGroupData();
                 GenerateBlockData(BlockConnections);
                 GenerateConnections(BlockConnections);
                 GenerateGroupCounter();
@@ -405,89 +377,32 @@ namespace AutoLevel
 
             public void OverrideGroupsWeights(List<float> groupOverride)
             {
-                for (int i = 0; i < Weights.Count; i++)
-                    Weights[i] = baseWeights[i];
+                for (int i = 0; i < weights.Count; i++)
+                    weights[i] = baseWeights[i];
 
-                MinGroupsWeightsOverride(groupOverride);
+                for (int i = 0; i < WeightGroupsCount; i++)
+                {
+                    var newValue = groupOverride[i];
+                    if (newValue < 0)
+                        continue;
+
+                    var wgBlocks = blocksPerWeightGroup[i];
+                    for (int j = 0; j < wgBlocks.Count; j++)
+                        weights[wgBlocks[j]] = newValue;
+                }
 
                 GenerateGroupsWeights();
             }
-            private void MinGroupsWeightsOverride(List<float> groupOverride)
-            {
-                for (int i = 0; i < GroupsCount; i++)
-                {
-                    var weight = groupOverride[i];
-                    if (weight < 0) continue;
-                    var blocks = BlocksPerGroup[i];
-                    for (int j = 0; j < blocks.Count; j++)
-                    {
-                        var b = blocks[j];
-                        Weights[b] = float.MaxValue;
-                    }
-                }
 
-                for (int i = 0; i < GroupsCount; i++)
-                {
-                    var weight = groupOverride[i];
-                    if (weight < 0) continue;
-                    var blocks = BlocksPerGroup[i];
-                    for (int j = 0; j < blocks.Count; j++)
-                    {
-                        var b = blocks[j];
-                        Weights[b] = Mathf.Min(Weights[b], weight);
-                    }
-                }
-            }
-            private void AvargeGroupsWeightsOverride(List<float> groupOverride)
-            {
-                for (int i = 0; i < GroupsCount; i++)
-                {
-                    var weight = groupOverride[i];
-                    if (weight < 0) continue;
-                    var blocks = BlocksPerGroup[i];
-                    for (int j = 0; j < blocks.Count; j++)
-                    {
-                        var b = blocks[j];
-                        Weights[b] = 0;
-                    }
-                }
-
-                int[] setCounter = new int[BlocksCount];
-                for (int i = 0; i < GroupsCount; i++)
-                {
-                    var weight = groupOverride[i];
-                    if (weight < 0) continue;
-                    var blocks = BlocksPerGroup[i];
-                    for (int j = 0; j < blocks.Count; j++)
-                    {
-                        var b = blocks[j];
-                        setCounter[b]++;
-                        Weights[b] += weight;
-                    }
-                }
-                for (int i = 0; i < BlocksCount; i++)
-                {
-                    var set = setCounter[i];
-                    if (set > 1)
-                        Weights[i] /= setCounter[i];
-                }
-            }
-
-            private void GenerateGroupData()
-            {
-                groupsHash = new BiDirectionalList<int>();
-                for (int i = 0; i < GroupsNames.Count; i++)
-                    groupsHash.Add(GroupsNames[i].GetHashCode());
-            }
-            private void GenerateBlockData(List<SideIds> BlockConnections)
+            private void GenerateBlockData(List<ConnectionsIds> BlockConnections)
             {
                 Resources = new List<BlockResources>();
-                gameObjecststemplates = new List<GameObjectTemplate>();
+                gameObjecstsTemplates = new List<BlockGOTemplate>();
                 BlocksHash = new BiDirectionalList<int>();
                 baseWeights = new List<float>();
-                BlocksPerGroup = new List<List<int>>();
-                for (int i = 0; i < GroupsCount; i++)
-                    BlocksPerGroup.Add(new List<int>());
+                blocksPerWeightGroup = new List<int>[WeightGroupsCount];
+                for (int i = 0; i < WeightGroupsCount; i++)
+                    blocksPerWeightGroup[i] = new List<int>();
 
                 var actionsToIndex = new Dictionary<int, int>();
                 for (int i = 0; i < actionsGroups.Count; i++)
@@ -496,40 +411,55 @@ namespace AutoLevel
                 List<IBlock> allBlocks = new List<IBlock>()
                 {
                     //Built-in
-                    new StandalnoeBlock(new List<int>(){ groupsHash[0] },0,1f),
-                    new StandalnoeBlock(new List<int>(){ groupsHash[1] },255,1f),
+                    new StandalnoeBlock( GetGroupHash(0), GetWeightGroupHash(0).GetHashCode() ,0,1f),
+                    new StandalnoeBlock( GetGroupHash(1), GetWeightGroupHash(1).GetHashCode() ,255,1f),
                 };
-                var baseBlocks = BlockAsset.GetBlocksEnum(root.GetComponentsInChildren<BlockAsset>());
 
-                var blockAssetGenerator = new BlockAssetGenerator(actionsGroups);
-                blockAssetGenerator.Generate(root.GetComponentsInChildren<BlockAsset>(), allBlocks);
+                var blockAssets = root.GetComponentsInChildren<BlockAsset>();
+                var bigBlockAssets = root.GetComponentsInChildren<BigBlockAsset>();
 
-                var ids = new LinkedList<int>(ConnectionsUtility.GetListOfSortedIds(baseBlocks));
-                var bigBlockAssetGenerator = new BigBlockAssetGenerator(actionsGroups, ids);
-                bigBlockAssetGenerator.Generate(root.GetComponentsInChildren<BigBlockAsset>(),allBlocks);
+                var blockAssetGenerator = new BlockAssetGenerator(actionsGroups, actionsToIndex);
+                blockAssetGenerator.Generate(blockAssets, allBlocks);
 
-                var gameObjectsGenerator = new BlocksGameObjectGenerator();
-                templates_root = gameObjectsGenerator.root.transform;
+                var ids = new LinkedList<int>(ConnectionsUtility.GetListOfSortedIds(BlockAsset.GetBlocksEnum(blockAssets)));
+                var bigBlockAssetGenerator = new BigBlockAssetGenerator(actionsGroups, actionsToIndex, ids);
+                bigBlockAssetGenerator.Generate(bigBlockAssets, allBlocks);
 
-                foreach (var block in allBlocks)
+                Dictionary<int, int> groupHashToIndex = HashToIndexLookup(groups);
+                allBlocks.Sort((a, b) => groupHashToIndex[a.group].CompareTo(groupHashToIndex[b.group]));
+
+                groupStartIndex = new List<int>(GroupsCount);
+                var lastGroup = -1;
+                for(int i = 0; i < allBlocks.Count; i++)
                 {
-                    BlocksHash.Add(block.GetHashCode());
-                    Resources.Add(block.blockResources);
-                    gameObjecststemplates.Add(
-                        new GameObjectTemplate(gameObjectsGenerator.Generate(block.gameObject),
-                        block.actions));
-                    BlockConnections.Add(block.compositeIds);
-                    baseWeights.Add(block.weight);
-
-                    var groups = block.groups;
-                    for (int j = 0; j < groups.Count; j++)
-                        BlocksPerGroup[groupsHash.GetIndex(groups[j])].Add(Resources.Count - 1);
+                    var block = allBlocks[i];
+                    if(block.group != lastGroup)
+                    {
+                        groupStartIndex.Add(i);
+                        lastGroup = block.group;
+                    }
                 }
 
-                Weights = new List<float>();
-                Weights.AddRange(baseWeights);
+                var templateGenerator = new BlockGOTemplateGenerator();
+                templates_root = templateGenerator.root.transform;
+
+                Dictionary<int, int> wgHashToIndex = HashToIndexLookup(weightGroups);
+
+                for(int i = 0; i < allBlocks.Count; i++)
+                {
+                    var block = allBlocks[i];
+                    BlocksHash.Add(block.GetHashCode());
+                    Resources.Add(block.blockResources);
+                    gameObjecstsTemplates.Add(templateGenerator.Generate(block.gameObject,block.actions));
+
+                    BlockConnections.Add(block.compositeIds);
+                    baseWeights.Add(block.weight);
+                    blocksPerWeightGroup[wgHashToIndex[block.weightGroup]].Add(i);
+                }
+
+                weights = new List<float>(baseWeights);
             }
-            private void GenerateConnections(List<SideIds> BlockConnections)
+            private void GenerateConnections(List<ConnectionsIds> BlockConnections)
             {
                 Profiling.StartTimer(generate_blocks_pk);
                 Connections = ConnectionsUtility.GetAdjacencyList(BlockConnections);
@@ -556,19 +486,19 @@ namespace AutoLevel
                     var counter_d = groupCounter[d];
                     for (int i = 0; i < gc; i++)
                     {
-                        var group_a = BlocksPerGroup[i];
+                        var group_a = GetGroupRange(i);
                         var counter_d_a = counter_d[i];
                         for (int j = 0; j < gc; j++)
                         {
-                            var group_b = BlocksPerGroup[j];
-                            var counter = new int[group_a.Count];
+                            var group_b = GetGroupRange(j);
+                            var counter = new int[group_a.y - group_a.x];
 
-                            for (int a = 0; a < group_a.Count; a++)
+                            for (int a = 0; a < counter.Length; a++)
                             {
-                                var conn = conn_d[group_a[a]];
+                                var conn = conn_d[group_a.x + a];
                                 var count = 0;
-                                for (int b = 0; b < group_b.Count; b++)
-                                    if (conn.BinarySearch(group_b[b]) != -1)
+                                for (int b = group_b.x; b < group_b.y ; b++)
+                                    if (conn.BinarySearch(b) != -1)
                                         count++;
                                 counter[a] = count;
                             }
@@ -588,12 +518,20 @@ namespace AutoLevel
 
                 for (int i = 0; i < GroupsCount; i++)
                 {
-                    var group = BlocksPerGroup[i];
+                    var groupRange = GetGroupRange(i);
                     var weight = 0f;
-                    for (int j = 0; j < group.Count; j++)
-                        weight += Weights[group[j]];
+                    for (int j = groupRange.x; j < groupRange.y; j++)
+                        weight += weights[j];
                     groupWeights.Add(weight);
                 }
+            }
+            private Dictionary<int, int> HashToIndexLookup<T>(IEnumerable<T> list)
+            {
+                var result = new Dictionary<int, int>();
+                int i = 0;
+                foreach (var item in list)
+                    result[item.GetHashCode()] = i++;
+                return result;
             }
 
             public void Dispose()

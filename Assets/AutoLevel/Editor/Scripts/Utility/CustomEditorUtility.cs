@@ -8,6 +8,7 @@ using System.Collections.Generic;
 
 namespace AutoLevel
 {
+    public class SOIgnoreAttribute : System.Attribute { }
 
     /// <summary>
     /// a fast way to create an interface to deal with serialize object,
@@ -44,12 +45,25 @@ namespace AutoLevel
             for (int i = 0; i < allFileds.Length; i++)
             {
                 var f = allFileds[i];
-                if (!f.DeclaringType.Name.StartsWith("BaseSO`"))
+                bool ignore = false;
+                foreach(var attr in f.CustomAttributes)
+                {
+                    if(attr.AttributeType == typeof(SOIgnoreAttribute))
+                    {
+                        ignore = true;
+                        break;
+                    }
+                }
+                if (!ignore && !f.DeclaringType.Name.StartsWith("BaseSO`"))
                     fields.Add(f.Name, f);
             }
 
+            OnIntialize();
+
             Update();
         }
+
+        protected virtual void OnIntialize() { }
 
         public void UpdateField(string name)
         {
@@ -68,7 +82,10 @@ namespace AutoLevel
                 var value = CustomEditorUtility.GetValue(pair.Value.FieldType, serializedObject.FindProperty(pair.Value.Name));
                 pair.Value.SetValue(this, value);
             }
+            OnUpdate();
         }
+
+        protected virtual void OnUpdate() { }
 
         public void ApplyField(string name)
         {
@@ -96,8 +113,11 @@ namespace AutoLevel
                 var value = pair.Value.GetValue(this);
                 CustomEditorUtility.SetValue(pair.Value.FieldType, value, serializedObject.FindProperty(pair.Key));
             }
+            OnApply();
             serializedObject.ApplyModifiedProperties();
         }
+
+        protected virtual void OnApply() { }
 
         public void Dispose()
         {
@@ -285,7 +305,7 @@ namespace AutoLevel
             }
             else
             {
-                var instance = FormatterServices.GetUninitializedObject(Type);
+                System.Object instance = FormatterServices.GetUninitializedObject(Type);
                 var fields = Type.GetFields(BindingFlags.NonPublic | BindingFlags.Public
                     | BindingFlags.Instance);
                 for (int i = 0; i < fields.Length; i++)

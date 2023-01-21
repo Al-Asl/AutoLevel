@@ -76,7 +76,7 @@ namespace AutoLevel
                 return BinarySearch(array, value, start, midIndex);
         }
 
-        public static void Swap<T>(T[] list, int a, int b)
+        public static void Swap<T>(this T[] list, int a, int b)
         {
             var temp = list[a];
             list[a] = list[b];

@@ -14,14 +14,14 @@ namespace AutoLevel
         [SerializeField]
         private T[] array;
 
-        private int xy => size.x * size.y;
+        private int sizexy => size.x * size.y;
 
         public Array3D() : this(Vector3Int.zero) { }
 
         public Array3D(Vector3Int size)
         {
             this.size = size;
-            array = new T[xy * size.z];
+            array = new T[sizexy * size.z];
         }
 
         public void Resize(Vector3Int newSize)
@@ -44,14 +44,14 @@ namespace AutoLevel
 
         public T this[int k, int j, int i]
         {
-            get => array[i + j * size.x + k * xy];
-            set => array[i + j * size.x + k * xy] = value;
+            get => array[i + j * size.x + k * sizexy];
+            set => array[i + j * size.x + k * sizexy] = value;
         }
 
         public T this[Vector3Int i]
         {
-            get => array[i.x + i.y * size.x + i.z * xy];
-            set => array[i.x + i.y * size.x + i.z * xy] = value;
+            get => array[SpatialUtil.Index3DTo1D(i, size.x, sizexy)];
+            set => array[SpatialUtil.Index3DTo1D(i, size.x, sizexy)] = value;
         }
     }
 

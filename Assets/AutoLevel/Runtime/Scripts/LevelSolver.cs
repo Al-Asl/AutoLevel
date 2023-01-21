@@ -19,7 +19,7 @@ namespace AutoLevel
         }
 
         [SerializeField]
-        private int groups;
+        public int groups;
 
         public InputWaveCell(List<int> groups)
         {
@@ -39,7 +39,17 @@ namespace AutoLevel
         }
     }
 
-    public class LevelSolver
+    public interface ILevelSolver
+    {
+        void SetRepo(BlocksRepo.Runtime repo);
+        void SetlevelData(LevelData levelData);
+        void SetInputWave(Array3D<InputWaveCell> inputWave);
+        void SetBoundary(ILevelBoundary boundary, Direction d);
+        void SetGroupBoundary(string GroupName, Direction d);
+        int Solve(BoundsInt bounds, int iteration = 10, int seed = 0);
+    }
+
+    public class LevelSolver : ILevelSolver
     {
         // Notations :
         //---------------------------------------------------
@@ -82,6 +92,8 @@ namespace AutoLevel
         private System.Random rand;
         private ILevelBoundary[] boundaries = new ILevelBoundary[6];
 
+        private List<float> blockWeights;
+        private List<float> groupWeights;
 
         private float weightsSum;
         private float blocksCount;
@@ -99,6 +111,8 @@ namespace AutoLevel
             wave = new Dictionary<int, int[]>[size.z, size.y, size.x];
             weights = new float[size.z, size.y, size.x];
             stack = new Stack<Possibility>(size.x);
+            blockWeights = new List<float>();
+            groupWeights = new List<float>();
 
             foreach (var index in SpatialUtil.Enumerate(size))
                 wave[index.z, index.y, index.x] = new Dictionary<int, int[]>();
@@ -107,6 +121,9 @@ namespace AutoLevel
         public void SetRepo(BlocksRepo.Runtime repo)
         {
             this.repo = repo;
+
+            blockWeights.Clear();
+            blockWeights.AddRange(repo.GetBlocksWeight());
         }
 
         public void SetlevelData(LevelData levelData)
@@ -159,6 +176,41 @@ namespace AutoLevel
             return 0;
         }
 
+        public void OverrideGroupsWeights(List<float> groupOverride)
+        {
+            blockWeights.Clear();
+            blockWeights.AddRange(repo.GetBlocksWeight());
+
+            for (int i = 0; i < repo.WeightGroupsCount; i++)
+            {
+                var newValue = groupOverride[i];
+                if (newValue < 0)
+                    continue;
+
+                var wgBlocks = repo.GetBlocksPerWeightGroup(i);
+                foreach(var block in wgBlocks)
+                    blockWeights[block] = newValue;
+            }
+
+            GenerateGroupsWeights();
+        }
+
+        private void GenerateGroupsWeights()
+        {
+            if (groupWeights == null)
+                groupWeights = new List<float>();
+            groupWeights.Clear();
+
+            for (int i = 0; i < repo.GroupsCount; i++)
+            {
+                var groupRange = repo.GetGroupRange(i);
+                var weight = 0f;
+                for (int j = groupRange.x; j < groupRange.y; j++)
+                    weight += blockWeights[j];
+                groupWeights.Add(weight);
+            }
+        }
+
         private void Clear()
         {
             foreach (var index in SolverVolume)
@@ -170,7 +222,7 @@ namespace AutoLevel
             blocksCounter.Fill(() => 0);
 
             for (int i = 0; i < repo.BlocksCount; i++)
-                weightsSum += repo.GetBlockWeight(i);
+                weightsSum += blockWeights[i];
         }
 
         private void Fill()
@@ -198,15 +250,13 @@ namespace AutoLevel
                 for (int i = 0; i < 6; i++)
                     counter[i] = new int[repo.BlocksCount];
 
-                //var groupsEnum = repo.GetDistinctGroupsEnumerable();
-
                 foreach (var index in SolverVolume)
                 {
                     var li = index + solveBounds.min;
                     var iwc = inputWave[li.z, li.y, li.x];
 
                     weights[index.z, index.y, index.x] =
-                        iwc.GroupsEnum(repo.GroupsCount).Sum((g) => repo.GetGroupWeight(g));
+                        iwc.GroupsEnum(repo.GroupsCount).Sum((g) => groupWeights[g]);
                 }
 
 
@@ -216,8 +266,6 @@ namespace AutoLevel
                     var iwc = inputWave[li.z, li.y, li.x];
 
                     var wc = wave[index.z, index.y, index.x];
-
-                    //groupsEnum.SetWave(iwc);
 
                     for (int d = 0; d < 6; d++)
                     {
@@ -257,7 +305,6 @@ namespace AutoLevel
                         else
                             wc[b] = c;
                     }
-                    //groupsEnum.Reset();
                 }
             }
         }
@@ -356,17 +403,17 @@ namespace AutoLevel
             float sum = 0;
             for (int i = 0; i < blocks.Length; i++)
             {
-                var b = blocks[i]; var weight = repo.GetBlockWeight(b);
+                var b = blocks[i]; var weight = blockWeights[b];
                 //exclude what reaches the threshold
                 if ((blocksCounter[b] + 1) * invBCount < weight * invWeightsSum)
                     sum += weight;
             }
 
-            var r = UnityEngine.Random.value * sum;
+            var r = GetNextRand() * sum;
             sum = 0;
             for (int i = 0; i < blocks.Length; i++)
             {
-                var b = blocks[i]; var weight = repo.GetBlockWeight(b);
+                var b = blocks[i]; var weight = blockWeights[b];
                 if ((blocksCounter[b] + 1) * invBCount < weight * invWeightsSum)
                 {
                     sum += weight;
@@ -381,12 +428,12 @@ namespace AutoLevel
         {
             float sum = 0;
             for (int i = 0; i < blocks.Length; i++)
-                sum += repo.GetBlockWeight(blocks[i]);
+                sum += blockWeights[blocks[i]];
             var r = GetNextRand() * sum;
             sum = 0;
             for (int i = 0; i < blocks.Length; i++)
             {
-                sum += repo.GetBlockWeight(blocks[i]);
+                sum += blockWeights[blocks[i]];
                 if (sum > r)
                     return i;
             }
@@ -402,27 +449,30 @@ namespace AutoLevel
         {
             while (stack.Count > 0)
             {
-                var poss = stack.Pop();
+                Propagate(stack.Pop());
+            }
+        }
 
-                for (int d = 0; d < 6; d++)
+        void Propagate(Possibility poss)
+        {
+            for (int d = 0; d < 6; d++)
+            {
+                var ni = poss.index + delta[d];
+                if (OnBoundary(ni)) continue;
+
+                int[] blocks = repo.Connections[d][poss.block];
+                var nwc = wave[ni.z, ni.y, ni.x];
+
+                foreach (var block in blocks)
                 {
-                    var ni = poss.index + delta[d];
-                    if (OnBoundary(ni)) continue;
+                    if (!nwc.ContainsKey(block))
+                        continue;
 
-                    int[] blocks = repo.Connections[d][poss.block];
-                    var nwc = wave[ni.z, ni.y, ni.x];
+                    int[] counter = nwc[block];
 
-                    foreach (var block in blocks)
-                    {
-                        if (!nwc.ContainsKey(block))
-                            continue;
-
-                        int[] counter = nwc[block];
-
-                        counter[d]--;
-                        if (counter[d] == 0)
-                            Ban(new Possibility(ni, block));
-                    }
+                    counter[d]--;
+                    if (counter[d] == 0)
+                        Ban(new Possibility(ni, block));
                 }
             }
         }
@@ -573,7 +623,7 @@ namespace AutoLevel
 
         private void Ban(Possibility poss)
         {
-            weights[poss.index.z, poss.index.y, poss.index.x] -= repo.GetBlockWeight(poss.block);
+            weights[poss.index.z, poss.index.y, poss.index.x] -= blockWeights[poss.block];
             var wc = wave[poss.index.z, poss.index.y, poss.index.x];
             wc.Remove(poss.block);
             if (wc.Count == 1)

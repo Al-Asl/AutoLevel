@@ -48,7 +48,7 @@ namespace AutoLevel
 
         [Conditional(DEBUG)]
         public static void RemoveTimer(string name) => RemoveTimer(name.GetHashCode());
-        [System.Diagnostics.Conditional(DEBUG)]
+        [Conditional(DEBUG)]
         public static void RemoveTimer(int hash)
         {
             timers.Remove(hash);

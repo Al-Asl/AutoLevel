@@ -1,10 +1,8 @@
 using System;
-using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using UnityEditor.Formats.Fbx.Exporter;
 using Object = UnityEngine.Object;
 
 namespace AutoLevel
@@ -14,20 +12,57 @@ namespace AutoLevel
     [CustomEditor(typeof(LevelBuilder))]
     public class LevelBuilderEditor : Editor
     {
-        public class SO : BaseSO<LevelBuilder>
+        public class SO : BaseSO<LevelBuilder> , ILevelBuilderData
         {
+            public LevelBuilder Builder => target;
+
+            public BlocksRepo BlockRepo => blockRepo;
+
+            public List<GroupSettings> GroupsWeights => groupsWeights;
+            public BoundarySettings BoundarySettings => boundarySettings;
+
+            public LevelData LevelData => levelData;
+            public Array3D<InputWaveCell> InputWave => inputWave;
+
             public BlocksRepo blockRepo;
 
-            public List<LevelBuilder.GroupSettings> GroupsWeights;
+            public List<GroupSettings> groupsWeights;
 
-            public LevelBuilder.BoundarySettings boundarySettings;
+            public BoundarySettings boundarySettings;
 
             public BoundsInt selection;
+            [SOIgnore]
             public LevelData levelData;
+            [SOIgnore]
             public Array3D<InputWaveCell> inputWave;
+
+            private SerializedProperty levelDataPositionProp;
+            private SerializedProperty levelDataArrayProp;
+            private SerializedProperty levelDataSizeProp;
+
+            private SerializedProperty inputWaveArrayProp;
+            private SerializedProperty inputWaveSizeProp;
 
             public SO(Object target) : base(target)
             {
+                
+            }
+
+            protected override void OnIntialize()
+            {
+                SerializedProperty levelDataProp = serializedObject.FindProperty(nameof(levelData));
+                levelDataPositionProp = levelDataProp.FindPropertyRelative("position");
+                var blocksProp = levelDataProp.FindPropertyRelative("blocks");
+                levelDataArrayProp = blocksProp.FindPropertyRelative("array");
+                levelDataSizeProp = blocksProp.FindPropertyRelative("size");
+
+                levelData = new LevelData(new BoundsInt(levelDataPositionProp.vector3IntValue, levelDataSizeProp.vector3IntValue));
+
+                SerializedProperty inputWaveProp = serializedObject.FindProperty(nameof(inputWave));
+                inputWaveArrayProp = inputWaveProp.FindPropertyRelative("array");
+                inputWaveSizeProp = inputWaveProp.FindPropertyRelative("size");
+
+                inputWave = new Array3D<InputWaveCell>(inputWaveSizeProp.vector3IntValue);
             }
 
             public void SetSelection(BoundsInt bounds)
@@ -39,11 +74,85 @@ namespace AutoLevel
                 selection = bounds;
                 ApplyField(nameof(selection));
             }
+
+            public void ApplyLevelData() => ApplyLevelData(new BoundsInt(Vector3Int.zero, levelData.Blocks.Size)); 
+            public void ApplyLevelData(BoundsInt bounds)
+            {
+                levelDataPositionProp.vector3IntValue = levelData.position;
+                Apply(levelDataArrayProp, levelDataSizeProp, levelData.Blocks, bounds,
+                    (prop, value) => { prop.intValue = value; });
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            public void ApplyInputWave() => ApplyInputWave(new BoundsInt(Vector3Int.zero, inputWave.Size));
+            public void ApplyInputWave(BoundsInt bounds)
+            {
+                Apply(inputWaveArrayProp, inputWaveSizeProp, inputWave, bounds,
+                    (prop, value) => 
+                    {
+                        prop.FindPropertyRelative("groups").intValue = value.groups; 
+                    });
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            protected override void OnUpdate()
+            {
+                levelData.position = levelDataPositionProp.vector3IntValue;
+                Update(levelDataArrayProp, levelDataSizeProp, levelData.Blocks,
+                    (prop) => prop.intValue);
+                Update(inputWaveArrayProp, inputWaveSizeProp, inputWave,
+                    (prop) =>
+                    {
+                        var iw = new InputWaveCell();
+                        iw.groups = prop.FindPropertyRelative("groups").intValue;
+                        return iw;
+                    });
+            }
+
+            protected override void OnApply()
+            {
+                ApplyLevelData();
+                ApplyInputWave();
+            }
+
+            private static void Update<T>(SerializedProperty arrayProp, SerializedProperty sizeProp,
+                Array3D<T> array, Func<SerializedProperty, T> getter)
+            {
+                if (array.Size != sizeProp.vector3IntValue)
+                {
+                    array = new Array3D<T>(sizeProp.vector3IntValue);
+                }
+                for (int i = 0; i < arrayProp.arraySize; i++)
+                {
+                    array[SpatialUtil.Index1DTo3D(i, array.Size)] = getter(arrayProp.GetArrayElementAtIndex(i));
+                }
+            }
+
+            private static void Apply<T>(SerializedProperty arrayProp, SerializedProperty sizeProp,
+                Array3D<T> array,BoundsInt bounds ,Action<SerializedProperty, T> setter)
+            {
+                if (array.Size != sizeProp.vector3IntValue)
+                {
+                    sizeProp.vector3IntValue = array.Size;
+                    arrayProp.arraySize = array.Size.x * array.Size.y * array.Size.z;
+                }
+                var sizex = array.Size.x;
+                var sizexy = array.Size.x * array.Size.y;
+                try
+                {
+                    foreach (var index in SpatialUtil.Enumerate(bounds))
+                        setter(arrayProp.GetArrayElementAtIndex(SpatialUtil.Index3DTo1D(index, sizex, sizexy)), array[index]);
+                }
+                catch
+                {
+
+                }
+            }
         }
 
         private SO builder;
         private BlocksRepo.Runtime repo;
-        List<LevelBuilder.GroupSettings> groupsSettings     => builder.GroupsWeights;
+        List<GroupSettings> groupsSettings                  => builder.groupsWeights;
         private Array3D<int> levelBlocks                    => builder.levelData.Blocks;
         private Array3D<InputWaveCell> inputWave            => builder.inputWave;
         private BoundsInt selection { get => builder.selection; set => builder.SetSelection(value); }
@@ -62,41 +171,39 @@ namespace AutoLevel
                         inputWave.Resize(newBounds.size);
                         foreach (var index in SpatialUtil.Enumerate(newBounds.size))
                             if (inputWave[index].Invalid()) inputWave[index] = InputWaveCell.AllGroups;
-                        ApplyInputWave();
+                        ApplyInputWave(new BoundsInt(Vector3Int.zero,newBounds.size));
 
                         builder.levelData.bounds = newBounds;
-                        builder.ApplyField(nameof(SO.levelData));
+                        builder.ApplyLevelData();
                     }
                     if (value.position != levelBounds.position)
                     {
                         builder.levelData.position = value.position;
-                        builder.ApplyField(nameof(SO.levelData));
+                        builder.ApplyLevelData();
                     }
                     //to clamp selection to level bounds
                     selection = selection;
-                    ReCreateLevel();
+                    levelDataDrawer.Recreate();
                 }
             }
         }
 
 
-        private Editor SettingsEditor;
-        private LevelEditorSettingsEditor.SO settingsSO;
-        private LevelEditorSettings.Settings settings => settingsSO.settings;
+        private LevelEditorSettingsEditor SettingsEditor;
+        private LevelEditorSettings.Settings settings => SettingsEditor.Settings;
 
         private HandleResources handleRes;
 
-
         private Tool current;
-        private int targetBounds = 1;
+        private int targetBounds = 0;
         private BoxBoundsHandle handle = new BoxBoundsHandle();
 
         private HashedFlagList[] groupsLists;
         private BlocksRepo.Runtime[] boundaryRepos;
-        private Transform[] boundaryRoots;
+        private LevelDataDrawer[] boundariesLevelDrawer;
 
-        private Transform root;
-        private Texture3D texture;
+        private InputWaveDrawer inputWaveDrawer;
+        private LevelDataDrawer levelDataDrawer;
 
         private string Result;
 
@@ -108,11 +215,10 @@ namespace AutoLevel
 
             handleRes = new HandleResources();
             var settings = LevelEditorSettings.GetSettings();
-            SettingsEditor = CreateEditor(settings, typeof(LevelEditorSettingsEditor));
-            settingsSO = new LevelEditorSettingsEditor.SO(settings);
+            SettingsEditor = (LevelEditorSettingsEditor)CreateEditor(settings, typeof(LevelEditorSettingsEditor));
 
             boundaryRepos = new BlocksRepo.Runtime[6];
-            boundaryRoots = new Transform[6];
+            boundariesLevelDrawer = new LevelDataDrawer[6];
 
             Initialize();
             ReCreateBoundiesLevel();
@@ -128,10 +234,8 @@ namespace AutoLevel
             handleRes.Dispose();
             DestroyImmediate(SettingsEditor);
 
-            if (root != null)
-                DestroyImmediate(root.gameObject);
-            if (texture != null)
-                DestroyImmediate(texture);
+            levelDataDrawer?.Dispose();
+            inputWaveDrawer?.Dispose();
             CleanBoundiesLevel();
 
             Tools.current = current;
@@ -141,40 +245,23 @@ namespace AutoLevel
 
         private void UndoCallback()
         {
-            ReCreateLevel();
+            levelDataDrawer?.Recreate();
         }
 
         [DrawGizmo(GizmoType.NotInSelectionHierarchy | GizmoType.Active)]
         static void DrawGizmos(LevelBuilder builder, GizmoType gizmoType)
         {
-            using (var so = new SerializedObject(builder))
-            {
-                var levelData = so.FindProperty(nameof(SO.levelData));
-                var position = levelData.FindPropertyRelative(nameof(LevelData.position)).vector3IntValue;
-                var size = (Vector3)levelData.FindPropertyRelative("blocks").FindPropertyRelative("size").vector3IntValue;
-                DrawBounds(new Bounds(position + size*0.5f,size), Color.yellow);
-            }
+            var data = builder.data;
+            var position = data.LevelData.position;
+            var size = (Vector3)data.LevelData.Blocks.Size;
+            DrawBounds(new Bounds(position + size * 0.5f, size), Color.yellow);
         }
 
         public override void OnInspectorGUI()
         {
             // settings //
 
-            settingsSO.Update();
-
-            EditorGUI.BeginChangeCheck();
-            var settingsExpand = settingsSO.GetFieldExpand(nameof(LevelEditorSettingsEditor.SO.settings));
-            settingsExpand = EditorGUILayout.BeginFoldoutHeaderGroup(settingsExpand, "Settings");
-
-            if (EditorGUI.EndChangeCheck())
-                settingsSO.SetFieldExpand(nameof(LevelEditorSettingsEditor.SO.settings), settingsExpand);
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            if (settingsExpand)
-                SettingsEditor.OnInspectorGUI();
-            GUILayout.EndVertical();
-
-            EditorGUILayout.EndFoldoutHeaderGroup();
+            SettingsEditor.Draw();
 
             // repo //
 
@@ -216,14 +303,13 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            // excution //
+            // execution //
 
             if (GUILayout.Button("Clear"))
             {
-                foreach (var index in SpatialUtil.Enumerate(levelBlocks.Size))
-                    levelBlocks[index.z, index.y, index.x] = 0;
-                builder.ApplyField(nameof(SO.levelData));
-                DestroyImmediate(root.gameObject, false);
+                LevelBuilderUtlity.ClearBuild(builder);
+                builder.ApplyLevelData();
+                levelDataDrawer.Clear();
                 SceneView.RepaintAll();
             }
 
@@ -261,7 +347,7 @@ namespace AutoLevel
                 return;
 
             if (settings.GroupsToggle)
-                DrawInputWave();
+                inputWaveDrawer.Draw();
 
             GetDrawCmd().
                 SetPrimitiveMesh(PrimitiveType.Cube).
@@ -288,9 +374,6 @@ namespace AutoLevel
                 builder.blockRepo = repo;
                 builder.ApplyField(nameof(SO.blockRepo));
 
-                if (root != null)
-                    DestroyImmediate(root.gameObject);
-
                 Initialize();
             }
         }
@@ -304,8 +387,13 @@ namespace AutoLevel
             IntegrityCheck(builder.target, this.repo);
             builder.Update();
 
-            RegenrateInputWaveTexture();
-            ReCreateLevel();
+            if (inputWaveDrawer != null)
+                inputWaveDrawer.Dispose();
+            inputWaveDrawer = new InputWaveDrawer(repo,builder);
+
+            if (levelDataDrawer != null)
+                levelDataDrawer.Dispose();
+            levelDataDrawer = new LevelDataDrawer(repo, builder);
 
             groupsLists = new HashedFlagList[6];
             for (int d = 0; d < 6; d++)
@@ -331,18 +419,18 @@ namespace AutoLevel
                     }
                 }
                 if (Apply)
-                    so.ApplyField(nameof(SO.levelData));
+                    so.ApplyLevelData();
 
                 bool groupChanged = false;
 
-                if (repo.WeightGroupsCount != so.GroupsWeights.Count)
+                if (repo.WeightGroupsCount != so.groupsWeights.Count)
                     groupChanged = true;
                 else
                 {
                     for (int i = 0; i < repo.WeightGroupsCount; i++)
                     {
                         var gh = repo.GetWeightGroupHash(i);
-                        if (gh != so.GroupsWeights[i].hash)
+                        if (gh != so.groupsWeights[i].hash)
                         {
                             groupChanged = true;
                             break;
@@ -352,20 +440,20 @@ namespace AutoLevel
 
                 if (groupChanged)
                 {
-                    if (so.GroupsWeights.Count != 0)
+                    if (so.groupsWeights.Count != 0)
                         Debug.Log($"adjusting to change in the Repo groups {levelBuilder.gameObject.name}");
 
                     var map = new List<int>();
-                    var newSettings = new List<LevelBuilder.GroupSettings>();
+                    var newSettings = new List<GroupSettings>();
                     for (int i = 0; i < repo.WeightGroupsCount; i++)
                     {
                         var hash = repo.GetWeightGroupHash(i);
-                        var oldIndex = so.GroupsWeights.FindIndex((a) => a.hash == hash);
+                        var oldIndex = so.groupsWeights.FindIndex((a) => a.hash == hash);
                         map.Add(oldIndex);
-                        newSettings.Add(oldIndex != -1 ? so.GroupsWeights[oldIndex] :
-                            new LevelBuilder.GroupSettings() { hash = hash, Weight = 1 });
+                        newSettings.Add(oldIndex != -1 ? so.groupsWeights[oldIndex] :
+                            new GroupSettings() { hash = hash, Weight = 1 });
                     }
-                    so.GroupsWeights = newSettings;
+                    so.groupsWeights = newSettings;
 
                     foreach (var index in SpatialUtil.Enumerate(so.inputWave.Size))
                     {
@@ -386,39 +474,35 @@ namespace AutoLevel
                         so.inputWave[index] = (all || niw.Invalid()) ? InputWaveCell.AllGroups : niw;
                     }
 
-                    so.ApplyField(nameof(SO.GroupsWeights));
-                    so.ApplyField(nameof(SO.inputWave));
+                    so.ApplyField(nameof(SO.groupsWeights));
+                    so.ApplyInputWave();
                 }
 
             }
         }
         private void ReCreateBoundiesLevel()
         {
+            CleanBoundiesLevel();
+
             var boundarySettings = builder.boundarySettings;
 
             for (int d = 0; d < 6; d++)
             {
-                var levelBoundary = boundarySettings.levelBoundary[d];
-                if (levelBoundary != null)
-                {
-                    BlocksRepo.Runtime repo = null;
-                    using (var level = new SO(levelBoundary))
-                    {
-                        if (level.blockRepo != null)
-                        {
-                            repo = level.blockRepo.CreateRuntime();
-                            boundaryRepos[d] = repo;
-                        }
-                    }
+                var boundaryLevel = boundarySettings.levelBoundary[d];
 
-                    if (repo == null)
-                        continue;
+                if (boundaryLevel == null)
+                    continue;
 
-                    IntegrityCheck(levelBoundary, boundaryRepos[d]);
+                var data = boundaryLevel.data;
 
-                    using (var level = new SO(levelBoundary))
-                        ReCreateLevel(repo, level.levelData, ref boundaryRoots[d]);
-                }
+                if (data.BlockRepo == null)
+                    continue;
+
+                boundaryRepos[d] = data.BlockRepo.CreateRuntime();
+
+                IntegrityCheck(boundaryLevel, boundaryRepos[d]);
+
+                boundariesLevelDrawer[d] = new LevelDataDrawer(boundaryRepos[d], boundaryLevel.data);
             }
         }
         private void CleanBoundiesLevel()
@@ -427,12 +511,10 @@ namespace AutoLevel
             {
                 boundaryRepos[d]?.Dispose();
                 boundaryRepos[d] = null;
-                if (boundaryRoots[d] != null)
-                    DestroyImmediate(boundaryRoots[d].gameObject);
+                boundariesLevelDrawer[d]?.Dispose();
+                boundariesLevelDrawer[d] = null;
             }
         }
-
-
 
         private void Rebuild(BoundsInt bounds)
         {
@@ -441,28 +523,20 @@ namespace AutoLevel
 
             bounds.position -= levelBounds.position;
 
-            var weightOverride = new List<float>();
-            foreach (var g in groupsSettings)
-                weightOverride.Add(g.overridWeight ? g.Weight : -1);
-            repo.OverrideGroupsWeights(weightOverride);
-
             var solver = new LevelSolver(bounds.size);
-            solver.SetlevelData(builder.levelData);
-            solver.SetRepo(repo);
-            solver.SetInputWave(builder.inputWave);
-            for (int d = 0; d < 6; d++)
-                SetSolverBoundary(solver, d);
+
+            LevelBuilderUtlity.UpdateLevelSolver(builder, repo, solver);
 
             int c = solver.Solve(bounds, settings.MaxIterations);
 
             if (c > 0)
             {
                 sb.AppendLine($"build succeeded ,completion time {watch.ElapsedTicks / 10000f} ms ,iteration {c} ,number of blocks {repo.BlocksCount}");
-                builder.ApplyField(nameof(SO.levelData));
+                builder.ApplyLevelData(bounds);
 
                 watch.Restart();
 
-                ReCreateLevel();
+                levelDataDrawer.Recreate();
 
                 sb.AppendLine($"time to rebuild {watch.ElapsedTicks / 10000f} ms");
             }
@@ -471,60 +545,6 @@ namespace AutoLevel
 
             Result = sb.ToString();
         }
-        private void SetSolverBoundary(LevelSolver solver, int d)
-        {
-            var levelBuilder = builder.boundarySettings.levelBoundary[d];
-            var groups = builder.boundarySettings.groupsBoundary[d].groups;
-
-            GroupsBoundary groupBoundary = null;
-            if(groups.Count > 0)
-            {
-                var groupsIndices = new List<int>();
-                foreach (var g in groups)
-                    groupsIndices.Add(repo.GetGroupIndex(g));
-                groupBoundary = new GroupsBoundary(new InputWaveCell(groupsIndices));
-            }
-
-            if (levelBuilder != null)
-                using (var so = new SO(levelBuilder))
-                {
-                    solver.SetBoundary(new LevelBoundary(so.levelData, so.inputWave, groupBoundary), (Direction)d);
-                }
-            else
-                solver.SetBoundary(groupBoundary, (Direction)d);
-        }
-        private void ReCreateLevel() => ReCreateLevel(repo, builder.levelData, ref root);
-        private void ReCreateLevel(BlocksRepo.Runtime repo, LevelData data, ref Transform root)
-        {
-            if (repo == null)
-                return;
-
-            if (root != null)
-                DestroyImmediate(root.gameObject);
-
-            root = new GameObject("level_root").transform;
-            root.position = data.position;
-            root.gameObject.hideFlags = HideFlags.HideAndDontSave;
-
-            foreach (var index in SpatialUtil.Enumerate(data.bounds.size))
-            {
-                var hash = data.Blocks[index.z, index.y, index.x];
-                if (hash != 0 && repo.ContainsBlock(hash))
-                {
-                    var block = repo.GetBlockResourcesByHash(hash);
-                    if (block.mesh != null)
-                    {
-                        var go = new GameObject();
-                        go.hideFlags = HideFlags.HideAndDontSave;
-                        go.AddComponent<MeshFilter>().sharedMesh = block.mesh;
-                        go.AddComponent<MeshRenderer>().sharedMaterial = block.material;
-                        go.transform.SetParent(root.transform);
-                        go.transform.localPosition = index;
-                    }
-                }
-            }
-        }
-
         private void ExportMesh()
         {
             var path = EditorUtility.SaveFilePanelInProject("Mesh Export", "level ", "fbx", "Mesh Export");
@@ -606,11 +626,11 @@ namespace AutoLevel
             EditorGUI.BeginChangeCheck();
 
             EditorGUI.BeginChangeCheck();
-            var expand = builder.GetFieldExpand(nameof(SO.GroupsWeights));
+            var expand = builder.GetFieldExpand(nameof(SO.groupsWeights));
             expand = EditorGUILayout.BeginFoldoutHeaderGroup(expand, "Group Settings");
 
             if(EditorGUI.EndChangeCheck())
-                builder.SetFieldExpand(nameof(SO.GroupsWeights), expand);
+                builder.SetFieldExpand(nameof(SO.groupsWeights), expand);
 
             if (expand)
             {
@@ -642,65 +662,7 @@ namespace AutoLevel
             EditorGUILayout.EndFoldoutHeaderGroup();
 
             if (EditorGUI.EndChangeCheck())
-                builder.ApplyField(nameof(SO.GroupsWeights));
-        }
-
-
-
-        private void RegenrateInputWaveTexture()
-        {
-            if (texture != null && (
-                texture.width != inputWave.Size.x ||
-                texture.height != inputWave.Size.y ||
-                texture.depth != inputWave.Size.z))
-                DestroyImmediate(texture, false);
-            if (texture == null)
-            {
-                texture = new Texture3D(inputWave.Size.x, inputWave.Size.y, inputWave.Size.z, TextureFormat.ARGB32, false);
-                texture.filterMode = FilterMode.Point;
-                texture.wrapMode = TextureWrapMode.Clamp;
-            }
-
-            Color emptyGroupClr = new Color(1, 1, 1, 1);
-            Color solidGroupsClr = new Color(0, 1f, 0, 1f);
-            Color fullGroupsClr = new Color(0, 0, 0, 0);
-
-            foreach (var i in SpatialUtil.Enumerate(inputWave.Size))
-            {
-                var iWave = inputWave[i.z, i.y, i.x];
-
-                Color col;
-
-                if (iWave.ContainAll)
-                    col = fullGroupsClr;
-                else if (iWave.GroupsCount(repo.GroupsCount) == 1)
-                {
-                    var gi = iWave.GroupsEnum(repo.GroupsCount).First();
-                    if (gi == 0)
-                        col = emptyGroupClr;
-                    else if (gi == 1)
-                        col = solidGroupsClr;
-                    else
-                        col = ColorUtility.GetColor(repo.GetGroupHash(gi));
-                }
-                else
-                {
-                    var h = new XXHash();
-                    foreach (var gi in iWave.GroupsEnum(repo.GroupsCount))
-                        h = h.Append(repo.GetGroupHash(gi));
-                    col = ColorUtility.GetColor(h);
-                }
-
-                texture.SetPixel(i.x, i.y, i.z, col);
-            }
-            texture.Apply();
-        }
-        private void DrawInputWave()
-        {
-            int size = Mathf.Max(inputWave.Size.x, inputWave.Size.y, inputWave.Size.z);
-            Handles.matrix = Matrix4x4.TRS(builder.levelData.bounds.center, Quaternion.identity, size * Vector3.one);
-            Handles.DrawTexture3DVolume(texture, 0.5f, 5, FilterMode.Point);
-            Handles.matrix = Matrix4x4.identity;
+                builder.ApplyField(nameof(SO.groupsWeights));
         }
 
         private void HandleTools()
@@ -825,7 +787,7 @@ namespace AutoLevel
                     menu.AddItem(new GUIContent(repo.GetGroupName(i)), false, () =>
                     {
                         Add(inputWave, repo, bounds, index);
-                        ApplyInputWave();
+                        ApplyInputWave(bounds);
                     });
                 }
                 menu.ShowAsContext();
@@ -840,7 +802,7 @@ namespace AutoLevel
                     menu.AddItem(new GUIContent(repo.GetGroupName(i)), false, () =>
                     {
                         Remove(inputWave, repo, bounds, index);
-                        ApplyInputWave();
+                        ApplyInputWave(bounds);
                     });
                 }
                 menu.ShowAsContext();
@@ -852,7 +814,7 @@ namespace AutoLevel
                 menu.AddItem(new GUIContent("All"), false, () =>
                 {
                     Set(inputWave, repo, bounds, -1);
-                    ApplyInputWave();
+                    ApplyInputWave(bounds);
                 });
                 for (int i = 0; i < repo.GroupsCount; i++)
                 {
@@ -860,7 +822,7 @@ namespace AutoLevel
                     menu.AddItem(new GUIContent(repo.GetGroupName(i)), false, () =>
                     {
                         Set(inputWave, repo, bounds, index);
-                        ApplyInputWave();
+                        ApplyInputWave(bounds);
                     });
                 }
                 menu.ShowAsContext();
@@ -916,13 +878,10 @@ namespace AutoLevel
                     inputWave[index.z, index.y, index.x] = InputWaveCell.AllGroups;
         }
 
-
-
-        private void ApplyInputWave()
+        private void ApplyInputWave(BoundsInt bounds)
         {
-            builder.ApplyField(nameof(SO.inputWave));
-            RegenrateInputWaveTexture();
+            builder.ApplyInputWave(bounds);
+            inputWaveDrawer.Regenrate();
         }
     }
-
 }

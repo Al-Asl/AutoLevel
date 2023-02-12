@@ -37,7 +37,7 @@ namespace AutoLevel
 
         public static void ExportObjects(LevelBuilderEditor.SO builder, BlocksRepo.Runtime repo, string path)
         {
-            using (var objectsBuilder = new LevelObjectsBuilder(builder.levelData, repo))
+            using (var objectsBuilder = new LevelExtraObjectBuilder(builder.levelData, repo))
             {
                 var bounds = builder.levelData.bounds;
                 bounds.position = Vector3Int.zero;

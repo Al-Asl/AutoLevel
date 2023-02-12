@@ -1,20 +1,11 @@
 ﻿using UnityEngine;
 using UnityEditor;
-using System.Collections.Generic;
 
 namespace AutoLevel
 {
 
     public static class EditorHelper
     {
-        public static Mesh GetPrimitiveMesh(PrimitiveType meshType)
-        {
-            var go = GameObject.CreatePrimitive(meshType);
-            var mesh = go.GetComponent<MeshFilter>().sharedMesh;
-            UnityEngine.Object.DestroyImmediate(go);
-            return mesh;
-        }
-
         /// <summary>
         /// get a path relative to the asset folder
         /// </summary>

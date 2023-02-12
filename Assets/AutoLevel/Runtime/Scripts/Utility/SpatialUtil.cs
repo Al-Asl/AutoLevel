@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 
 namespace AutoLevel
 {
@@ -99,18 +99,59 @@ namespace AutoLevel
             }
         }
 
-        public static void ParallelFor(Vector3Int size, Action<Vector3Int> excute)
+        public static Vector2Int[] Parting(Vector2Int size) => Parting(size.x * size.y, Environment.ProcessorCount);
+
+        public static Vector2Int[] Parting(Vector3Int size) => Parting(size.x * size.y * size.z, Environment.ProcessorCount);
+
+        public static Vector2Int[] Parting(int size, int partions)
         {
-            ParallelFor(Vector3Int.zero, size, excute);
+            var result = new Vector2Int[partions];
+
+            int l = size / partions;
+            int r = size - l * partions;
+
+            int last = 0;
+            for (int p = 0; p < partions; p++)
+            {
+                var start = last;
+                var end = start + l + (r-- > 0 ? 1 : 0);
+                result[p] = new Vector2Int(start, end);
+                last = end;
+            }
+
+            return result;
         }
 
-        public static void ParallelFor(Vector3Int start, Vector3Int end,Action<Vector3Int> excute)
+        public static void ParallelEnumrate(Vector3Int size,Action<Vector3Int> excute)
         {
-            Vector3Int size = end - start;
-            int sizexy = size.x * size.y;
-            var res = Parallel.For(0, sizexy * size.z, (i) =>
+            var parts = Parting(size);
+
+            var sxy = size.x * size.y;
+            var sx = size.x;
+
+            Parallel.For(0, parts.Length, (id) =>
             {
-                excute(Index1DTo3D(i,size.x,sizexy));
+                var range = parts[id];
+
+                for (int i = range.x; i < range.y; i++)
+                    excute(Index1DTo3D(i,sx,sxy));
+            });
+        }
+
+        public static ParallelLoopResult ParallelEnumrate<T>(Vector3Int size,Func<T> InitLocal,Action<Vector3Int, ParallelLoopState,T> excute)
+        {
+            var parts = Parting(size);
+
+            var sxy = size.x * size.y;
+            var sx = size.x;
+
+            return Parallel.For(0, parts.Length, (id, state) =>
+            {
+                var range = parts[id];
+                var l = InitLocal();
+
+                for (int i = range.x; i < range.y; i++)
+                    excute(Index1DTo3D(i, sx, sxy), state, l);
             });
         }
 
@@ -138,6 +179,12 @@ namespace AutoLevel
             index.x = t % sizex;
             return index;
         }
+
+        public static int Index2DTo1D(Vector2Int i2, int sizex)
+            => i2.x + i2.y * sizex;
+
+        public static Vector2Int Index1DTo2D(int i, int sizex)
+            => new Vector2Int(i % sizex, i / sizex);
 
         public static IEnumerable<Vector3Int> Enumerate(Vector3Int start, Vector3Int end)
         {

@@ -92,19 +92,16 @@ namespace AutoLevel
         public LevelBoundaryResult Evaluate(Vector3Int index)
         {
             var localIndex = index - level.position;
+            bool contain = bounds.Contains(index);
 
-            if (bounds.Contains(index))
-            {
-                var block = level.Blocks[localIndex];
-                if (block != 0)
-                    return new LevelBoundaryResult(block);
-                else
-                    return new LevelBoundaryResult(wave[localIndex]);
-            }
-            else if (fallBack != null)
+            if(contain && level.Blocks[localIndex] != 0)
+                return new LevelBoundaryResult(level.Blocks[localIndex]);
+            else if(contain && wave != null)
+                return new LevelBoundaryResult(wave[localIndex]);
+            else if(fallBack != null)
                 return fallBack.Evaluate(index);
-
-            return new LevelBoundaryResult();
+            else
+                return new LevelBoundaryResult(InputWaveCell.AllGroups);
         }
     }
 

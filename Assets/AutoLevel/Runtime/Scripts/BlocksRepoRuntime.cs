@@ -7,52 +7,6 @@ namespace AutoLevel
 {
     public partial class BlocksRepo : MonoBehaviour
     {
-        public class GroupsEnumerator : IEnumerator<int>, IEnumerable<int>
-        {
-            protected IEnumerator<int> groups;
-            protected Runtime repo;
-
-            protected Vector2Int groupRange;
-            protected int blockIndex = -1;
-
-            public GroupsEnumerator(InputWaveCell wave, Runtime repo)
-            {
-                this.repo = repo;
-                groups = wave.GroupsEnum(repo.GroupsCount).GetEnumerator();
-            }
-
-            public int Current => blockIndex;
-            object IEnumerator.Current => Current;
-
-            public void Dispose() { }
-
-            public IEnumerator<int> GetEnumerator() => this;
-
-            public virtual bool MoveNext()
-            {
-                blockIndex++;
-                while (blockIndex >= groupRange.y || groupRange.y == 0)
-                {
-                    if (!groups.MoveNext())
-                        return false;
-                    groupRange = repo.GetGroupRange(groups.Current);
-                    blockIndex = groupRange.x;
-                }
-                return true;
-            }
-
-            public virtual void Reset()
-            {
-                groupRange = Vector2Int.zero;
-                groups.Reset();
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                throw new System.NotImplementedException();
-            }
-        }
-
         public class Runtime : System.IDisposable
         {
             private class BlockGOTemplate
@@ -139,7 +93,7 @@ namespace AutoLevel
                             if (go.transform.parent != null && go.transform.parent.childCount == 1)
                                 parent = go.transform.parent.gameObject;
 
-                            SafeDestroy(go);
+                            GameObjectUtil.SafeDestroy(go);
 
                             if (parent != null)
                                 Strip(parent);
@@ -162,7 +116,7 @@ namespace AutoLevel
                 {
                     var com = gameObject.GetComponent<T>();
                     if (com != null)
-                        SafeDestroy(com);
+                        GameObjectUtil.SafeDestroy(com);
                 }
             }
 
@@ -349,12 +303,10 @@ namespace AutoLevel
             public int GetWeightGroupIndex(string name) => weightGroups.GetIndex(name);
             public IEnumerable<int> GetBlocksPerWeightGroup(int group) => blocksPerWeightGroup[group];
 
-            public GroupsEnumerator GetGroupsEnumerable(InputWaveCell wave) => new GroupsEnumerator(wave, this);
-
             public Vector2Int GetGroupRange(int index)
             {
                 return new Vector2Int(groupStartIndex[index],
-                    index == groups.Count - 1 ? BlocksCount : groupStartIndex[index + 1]);
+                    index == groupStartIndex.Count - 1 ? BlocksCount : groupStartIndex[index + 1]);
             }
 
             public Runtime(Transform root, List<string> GroupsNames, List<string> WeightGroupsNames, List<ActionsGroup> actionsGroups)
@@ -411,12 +363,14 @@ namespace AutoLevel
                 for(int i = 0; i < allBlocks.Count; i++)
                 {
                     var block = allBlocks[i];
-                    if(block.group != lastGroup)
+                    while(groupHashToIndex[block.group] != lastGroup)
                     {
                         groupStartIndex.Add(i);
-                        lastGroup = block.group;
+                        lastGroup++;
                     }
                 }
+                for (int i = 0; i < groups.Count - groupStartIndex.Count; i++)
+                    groupStartIndex.Add(allBlocks.Count - 1);
 
                 var templateGenerator = new BlockGOTemplateGenerator();
                 templates_root = templateGenerator.root.transform;
@@ -508,20 +462,10 @@ namespace AutoLevel
                     if (mesh == null)
                         continue;
 
-                    SafeDestroy(mesh);
+                    GameObjectUtil.SafeDestroy(mesh);
                 }
 
-                SafeDestroy(templates_root.gameObject);
-            }
-
-            private static void SafeDestroy<T>(T target) where T : Object
-            {
-#if UNITY_EDITOR
-                if (!UnityEditor.EditorApplication.isPlaying)
-                    DestroyImmediate(target, false);
-                else
-#endif
-                    Destroy(target);
+                GameObjectUtil.SafeDestroy(templates_root.gameObject);
             }
         }
     }

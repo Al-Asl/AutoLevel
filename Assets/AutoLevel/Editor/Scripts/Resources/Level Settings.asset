@@ -15,6 +15,4 @@ MonoBehaviour:
   settings:
     GroupsToggle: 1
     MaxIterations: 10
-    OverrideSolverSize: 0
-    SolverSize: 5
     ExportSize: 5

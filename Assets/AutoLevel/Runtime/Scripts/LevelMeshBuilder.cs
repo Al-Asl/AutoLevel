@@ -5,7 +5,7 @@ using UnityEngine;
 namespace AutoLevel
 {
 
-    public class LevelMeshBuilder : IDisposable
+    public class LevelMeshBuilder : BaseLevelDataBuilder
     {
         struct TileGroup
         {
@@ -15,22 +15,13 @@ namespace AutoLevel
             public MeshCollider collider;
         }
 
-        public Transform root;
-
         private int tilesPerGroup;
 
         private TileGroup[,,] groups;
-        private LevelData levelData;
-        private BlocksRepo.Runtime repo;
 
         public LevelMeshBuilder(LevelData levelData,
-        BlocksRepo.Runtime blockRepo, int tilesPerGroup = 5)
+        BlocksRepo.Runtime blockRepo, int tilesPerGroup = 5) : base(levelData, blockRepo)
         {
-            this.repo = blockRepo;
-            this.levelData = levelData;
-            root = new GameObject("root").transform;
-            root.transform.position = levelData.bounds.position;
-
             this.tilesPerGroup = tilesPerGroup;
             var groupsSize = MathUtility.CeilToInt(new Vector3(
                 levelData.bounds.size.x * 1f / tilesPerGroup,
@@ -56,8 +47,9 @@ namespace AutoLevel
             }
         }
 
-        public void Rebuild(BoundsInt area)
+        public override void Rebuild(BoundsInt area)
         {
+            root.transform.position = levelData.bounds.position;
             var gStart = area.min / tilesPerGroup;
             var gEnd = (area.max - Vector3Int.one) / tilesPerGroup + Vector3Int.one;
             foreach (var index in SpatialUtil.Enumerate(gStart, gEnd))
@@ -160,18 +152,7 @@ namespace AutoLevel
             group.renderer.sharedMaterials = materials;
 
             for (int i = 0; i < materialCount; i++)
-                SafeDestroy(subMeshes[i].mesh);
-        }
-
-        void SafeDestroy(UnityEngine.Object obj)
-        {
-#if UNITY_EDITOR
-            if (!UnityEditor.EditorApplication.isPlaying)
-                UnityEngine.Object.DestroyImmediate(obj, false);
-            else
-#endif
-                UnityEngine.Object.Destroy(obj);
-
+                GameObjectUtil.SafeDestroy(subMeshes[i].mesh);
         }
 
         BoundsInt GetGroupBoundary(Vector3Int index)
@@ -182,11 +163,12 @@ namespace AutoLevel
             return new BoundsInt(start, end - start);
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
             foreach (var index in SpatialUtil.Enumerate(groups))
-                SafeDestroy(groups[index.z, index.y, index.x].mesh);
-            SafeDestroy(root.gameObject);
+                GameObjectUtil.SafeDestroy(groups[index.z, index.y, index.x].mesh);
+            if(root != null)
+                GameObjectUtil.SafeDestroy(root.gameObject);
         }
     }
 

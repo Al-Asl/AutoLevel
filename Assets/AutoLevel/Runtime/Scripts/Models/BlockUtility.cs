@@ -45,11 +45,11 @@ namespace AutoLevel
         {
             var mesh = block.baseMesh;
             if (mesh == null)
-                return new XXHash().
+                return new XXHash(1).
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(actions));
             else
-                return new XXHash().Append(block.baseMesh.name.GetHashCode()).
+                return new XXHash(1).Append(block.baseMesh.name.GetHashCode()).
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(actions));
         }

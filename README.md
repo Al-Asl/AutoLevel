@@ -19,7 +19,7 @@ You can check out the tutorial [here](https://www.youtube.com/watch?v=1-M3W0y42L
 * Big block support
 * Mesh builder that supports multiple materials input, with the ability to subdivide the level into chunks
 * fbx export
-* Child objects export
+* multi threaded solver (only work with constrainst)
 
 Complete C# source code is provided.
 
@@ -48,60 +48,59 @@ Keep in mind that the Building performance depends on two factors the size of th
 using UnityEngine;
 using AutoLevel;
 
-public class RuntimeExample : MonoBehaviour
-{
-    [SerializeField]
-    public BlocksRepo repo;
-    [SerializeField]
-    public BoundsInt bounds;
-
-    private BlocksRepo.Runtime runtimeRepo;
-    private LevelMeshBuilder meshBuilder;
-    private LevelData levelData;
-    private LevelSolver solver;
-
-    private void OnEnable()
+public class BasicExample : MonoBehaviour
     {
-        //generate blocks connections, variants and other configuration
-        BlocksRepo.Runtime runtimeRepo = repo.CreateRuntime();
+        [SerializeField]
+        public BlocksRepo repo;
+        [SerializeField]
+        public BoundsInt bounds;
 
-        //a container for the solver result
-        levelData = new LevelData(bounds);
-        meshBuilder = new LevelMeshBuilder(levelData, runtimeRepo);
+        private BlocksRepo.Runtime runtimeRepo;
+        private LevelMeshBuilder meshBuilder;
+        private LevelData levelData;
+        private LevelSolver solver;
 
-        solver = new LevelSolver(bounds.size);
-        solver.SetRepo(runtimeRepo);
-        solver.SetlevelData(levelData);
-
-        //set the bottom boundary
-        solver.SetBoundary(
-            new GroupsBoundary(runtimeRepo.GetGroupIndex(BlocksRepo.SOLID_GROUP)), Direction.Down);
-    }
-
-    private void OnDisable()
-    {
-        runtimeRepo.Dispose();
-        meshBuilder.Dispose();
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.R))
-            Rebuild(bounds);
-    }
-
-    void Rebuild(BoundsInt bounds)
-    {
-        //run the solver, this will return the number of iteration it took,
-        //0 means the solver has failed
-        var iterations = solver.Solve(bounds);
-        if (iterations > 0)
+        private void OnEnable()
         {
-            //rebuild the mesh if the solver success
-            meshBuilder.Rebuild(bounds);
+            //generate blocks connections, variants and other configuration
+            BlocksRepo.Runtime runtimeRepo = repo.CreateRuntime();
+
+            //a container for the solver result
+            levelData = new LevelData(bounds);
+            meshBuilder = new LevelMeshBuilder(levelData, runtimeRepo);
+
+            solver = new LevelSolver(bounds.size);
+            solver.SetRepo(runtimeRepo);
+            solver.SetlevelData(levelData);
+
+            //set the bottom boundary
+            solver.SetGroupBoundary(BlocksRepo.SOLID_GROUP, Direction.Down);
+        }
+
+        private void OnDisable()
+        {
+            runtimeRepo.Dispose();
+            meshBuilder.Dispose();
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.R))
+                Rebuild(bounds);
+        }
+
+        void Rebuild(BoundsInt bounds)
+        {
+            //run the solver, this will return the number of iteration it took,
+            //0 means the solver has failed
+            var iterations = solver.Solve(bounds);
+            if (iterations > 0)
+            {
+                //rebuild the mesh if the solver success
+                meshBuilder.Rebuild(bounds);
+            }
         }
     }
-}
 ```
 
 **FILLING**
@@ -112,11 +111,10 @@ The filling has two roles. First, the connections will only be made to blocks wi
 
 ## PERFORMACE
 
-* Regarding memory, reducing memory usage can be done by switching to a dictionary instead of arrays. This also helped with performance.
+* Multi threaded solver can only give a better performance where constrainst are used with heavy load tasks, and could yield up to 3x original performance.
 * There is a considerable cost when using a block group. This cost has been reduced significantly by creating a lookup table for group interaction, it still has a significant cost, but it offers great flexibility.
 
 ## WHATS NEXT
 * Adding multiple blocks per `Big Block` cell
 * Layers
 * Fine Block connection control
-* Multithredead solving

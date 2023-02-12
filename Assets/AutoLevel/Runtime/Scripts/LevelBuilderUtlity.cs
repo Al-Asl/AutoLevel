@@ -9,28 +9,54 @@ namespace AutoLevel
 {
     public static class LevelBuilderUtlity
     {
-        class LevelGroupBuilder
+        public class LevelGroupBuilder
         {
-            private Stack<ILevelBuilderData> toBuild = new Stack<ILevelBuilderData>();
-            private LinkedList<(ILevelBuilderData, HashSet<LevelBuilder>)> buildersDep;
-            private Dictionary<LevelBuilder, ILevelBuilderData> BuilderToData;
-            private readonly object toBuildLock = new object();
-            private CancellationTokenSource source;
-            private Func<LevelBuilder, BlocksRepo.Runtime> repoSolver;
-
-            private const int iterations = 3;
-
-            public bool Rebuild(
-                IEnumerable<ILevelBuilderData> builders,
-                IEnumerable<ILevelBuilderData> targetBuilders,
-                System.Func<LevelBuilder, BlocksRepo.Runtime> GetRepo)
+            class BuilderResource
             {
-                BuilderToData = new Dictionary<LevelBuilder, ILevelBuilderData>();
-                foreach (var builder in builders)
-                    BuilderToData[builder.Builder] = builder;
+                public ILevelBuilderData builderData;
+                public BlocksRepo.Runtime repo;
+                public BaseLevelSolver solver;
+            }
 
-                repoSolver = GetRepo;
+            private Dictionary<LevelBuilder, BuilderResource> BuildersResources;
 
+            private readonly object toBuildLock = new object();
+            private Stack<ILevelBuilderData> toBuild = new Stack<ILevelBuilderData>();
+
+            private LinkedList<(ILevelBuilderData, HashSet<LevelBuilder>)> buildersDep;
+
+            private CancellationTokenSource cancelSource;
+            private int iterations = 1;
+
+            public LevelGroupBuilder(IEnumerable<ILevelBuilderData> buildersData, IEnumerable<BlocksRepo.Runtime> repos, int iterations = 1)
+            {
+                this.iterations = iterations;
+
+                BuildersResources = new Dictionary<LevelBuilder, BuilderResource>();
+                var reposEnum = repos.GetEnumerator();
+                foreach (var builderData in buildersData) {
+                    reposEnum.MoveNext();
+                    BuildersResources[builderData.Builder] = new BuilderResource()
+                    {
+                        builderData = builderData,
+                        repo = reposEnum.Current,
+                        solver = new LevelSolver(builderData.LevelData.Blocks.Size)
+                    };
+                }
+            }
+
+            public bool Rebuild()
+            {
+                for (int i = 0; i < iterations; i++)
+                {
+                    if (Run(BuildersResources.Select((pair) => pair.Value.builderData)))
+                        return true;
+                }
+                return false;
+            }
+
+            public bool Rebuild(IEnumerable<ILevelBuilderData> targetBuilders)
+            {
                 for (int i = 0; i < iterations; i++)
                 {
                     if (Run(targetBuilders))
@@ -43,7 +69,7 @@ namespace AutoLevel
             {
                 GenerateBuildersDeps(builders);
 
-                source = new CancellationTokenSource();
+                cancelSource = new CancellationTokenSource();
 
                 while (buildersDep.Count > 0)
                 {
@@ -52,7 +78,7 @@ namespace AutoLevel
 
                     Build();
 
-                    if (source.IsCancellationRequested)
+                    if (cancelSource.IsCancellationRequested)
                         return false;
                 }
 
@@ -68,32 +94,29 @@ namespace AutoLevel
 
                 lock(toBuildLock)
                 {
-
                     for (int i = 0; i < tasks.Length; i++)
                     {
-                        var builderData = toBuild.Pop();
+                        var builderResource = BuildersResources[toBuild.Pop().Builder];
+                        var token = cancelSource.Token;
 
                         tasks[i] = Task.Run(() =>
                         {
-                            if (!source.IsCancellationRequested)
+                            if (!token.IsCancellationRequested)
                             {
-                                var watch = System.Diagnostics.Stopwatch.StartNew();
-
-                                var bounds = new BoundsInt(Vector3Int.zero, builderData.LevelData.Blocks.Size);
-                                var solver = new LevelSolver(bounds.size);
-                                UpdateLevelSolver(builderData, repoSolver(builderData.Builder), solver);
-                                var itr = solver.Solve(bounds);
+                                var bounds = new BoundsInt(Vector3Int.zero, builderResource.builderData.LevelData.Blocks.Size);
+                                UpdateSolver(builderResource);
+                                var itr = builderResource.solver.Solve(bounds, 1, i);
 
                                 if (itr > 0)
                                 {
                                     lock (toBuildLock)
                                     {
-                                        Submit(builderData);
+                                        Submit(builderResource.builderData);
                                     }
                                     Build();
                                 }
                                 else
-                                    source.Cancel();
+                                    cancelSource.Cancel();
                             }
                         });
                     }
@@ -102,8 +125,12 @@ namespace AutoLevel
                 Task.WaitAll(tasks);
             }
 
-            public void UpdateLevelSolver(ILevelBuilderData builderData, BlocksRepo.Runtime repo, LevelSolver solver)
+            private void UpdateSolver(BuilderResource builderResource)
             {
+                var builderData = builderResource.builderData;
+                var solver = builderResource.solver;
+                var repo = builderResource.repo;
+
                 var levelData = builderData.LevelData;
 
                 var weightOverride = new List<float>();
@@ -115,7 +142,7 @@ namespace AutoLevel
                 solver.SetlevelData(levelData);
                 solver.SetInputWave(builderData.InputWave);
 
-                SetSolverBoundary(solver, repo, builderData, (builder) => BuilderToData[builder]);
+                SetSolverBoundary(solver, repo, builderData, (builder) => BuildersResources[builder].builderData);
             }
 
             private void Submit(ILevelBuilderData builderData)
@@ -140,7 +167,7 @@ namespace AutoLevel
             private void GenerateBuildersDeps(IEnumerable<ILevelBuilderData> builders)
             {
                 buildersDep = new LinkedList<(ILevelBuilderData, HashSet<LevelBuilder>)>();
-                var set = new HashSet<LevelBuilder>(builders.Select((b)=>b.Builder));
+                var allBuilders = new HashSet<LevelBuilder>(builders.Select((b)=>b.Builder));
 
                 foreach (var builder in builders)
                 {
@@ -150,7 +177,7 @@ namespace AutoLevel
                     for (int d = 0; d < 6; d++)
                     {
                         var boundaryLevel = boundariesLevel[d];
-                        if (boundaryLevel != null && set.Contains(boundaryLevel))
+                        if (boundaryLevel != null && allBuilders.Contains(boundaryLevel))
                             dep.Add(boundaryLevel);
                     }
 
@@ -182,10 +209,11 @@ namespace AutoLevel
 
         public static bool RebuildLevelGroup( 
             IEnumerable<ILevelBuilderData> allBuilders,
-            IEnumerable<ILevelBuilderData> targetBuilders,
-            Func<LevelBuilder, BlocksRepo.Runtime> GetRepo)
+            IEnumerable<BlocksRepo.Runtime> repos,
+            IEnumerable<ILevelBuilderData> targetBuilders)
         {
-            return new LevelGroupBuilder().Rebuild(allBuilders, targetBuilders, GetRepo);
+            var groupBuilder = new LevelGroupBuilder(allBuilders,repos);
+            return groupBuilder.Rebuild(targetBuilders);
         }
 
         public static void ClearBuild(ILevelBuilderData builderData)
@@ -195,7 +223,7 @@ namespace AutoLevel
                 levelBlocks[index.z, index.y, index.x] = 0;
         }
 
-        public static void UpdateLevelSolver(ILevelBuilderData builderData, BlocksRepo.Runtime repo, LevelSolver solver)
+        public static void UpdateLevelSolver(ILevelBuilderData builderData, BlocksRepo.Runtime repo, BaseLevelSolver solver)
         {
             var levelData = builderData.LevelData;
 
@@ -204,14 +232,14 @@ namespace AutoLevel
                 weightOverride.Add(g.overridWeight ? g.Weight : -1);
 
             solver.SetRepo(repo);
-            solver.OverrideGroupsWeights(weightOverride);
             solver.SetlevelData(levelData);
+            solver.OverrideGroupsWeights(weightOverride);
             solver.SetInputWave(builderData.InputWave);
             SetSolverBoundary(solver, repo, builderData , (builder)=> builder.data);
         }
 
         private static void SetSolverBoundary(
-            LevelSolver solver, BlocksRepo.Runtime repo, 
+            BaseLevelSolver solver, BlocksRepo.Runtime repo, 
             ILevelBuilderData builderData,Func<LevelBuilder,ILevelBuilderData>  GetBuilderData)
         {
             for (int d = 0; d < 6; d++)

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 
 namespace AutoLevel
 {
@@ -57,6 +55,36 @@ namespace AutoLevel
 
     public static class ConnectionsUtility
     {
+        public class IDGenerator
+        {
+            private LinkedList<int> ids;
+            private LinkedListNode<int> current;
+            private int index;
+
+            public IDGenerator(IEnumerable<int> sortedIds)
+            {
+                this.ids = new LinkedList<int>(sortedIds);
+
+                current = ids.First;
+                index = 1;
+            }
+
+            public int GetNext()
+            {
+                while (current != null)
+                {
+                    if(current.Value != index)
+                    {
+                        ids.AddBefore(current,index++);
+                        return index - 1;
+                    }
+                    index++;
+                    current = current.Next;
+                }
+                return index++;
+            }
+        }
+
         public static List<int[]>[] GetAdjacencyList(List<ConnectionsIds> connectionsIds)
         {
             var alist = new List<int[]>[6];
@@ -101,101 +129,31 @@ namespace AutoLevel
             }
         }
 
-        public static int GetNextId(List<int> list)
+        public static IDGenerator CreateIDGenerator<T>(IEnumerable<T> blocks) where T : IBlock
         {
-            int next = list.Count + 1;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i] != (i + 1))
-                {
-                    next = i + 1;
-                    break;
-                }
-            }
-            return next;
-        }
-
-        public static int GetAndUpdateNextId(LinkedList<int> ids)
-        {
-            var current = ids.First;
-            var index = 1;
-            while (current != null)
-            {
-                if (current.Value != index)
-                {
-                    ids.AddBefore(current, index);
-                    return index;
-                }
-                index++;
-                current = current.Next;
-            }
-            ids.AddLast(index);
-            return index;
-        }
-
-        public static HashSet<int> GetInternalConnections<T>(Array3D<T> blocks) where T : IBlock
-        {
-            HashSet<Connection> connections = new HashSet<Connection>();
-            BoundsInt bounds = new BoundsInt(Vector3Int.zero, blocks.Size);
-
-            foreach (var index in SpatialUtil.Enumerate(blocks.Size))
-            {
-                var c = blocks[index.z, index.y, index.x];
-                if (c.blockAsset == null)
-                    continue;
-
-                for (int d = 0; d < 6; d++)
-                {
-                    var i = index + delta[d];
-                    if (bounds.Contains(i))
-                    {
-                        var n = blocks[i.z, i.y, i.x];
-                        if (n.blockAsset != null)
-                            connections.Add(new Connection(c, n, d));
-                    }
-                }
-            }
-
-            HashSet<int> result = new HashSet<int>();
-
-            foreach (var con in connections)
-                result.Add(con.a.baseIds[con.d]);
-
-            return result;
-        }
-
-        public static List<int> GetListOfSortedIds<T>(IEnumerable<T> blocks) where T : IBlock
-        {
-            var list = new List<int>(GetListOfIds(blocks));
-            list.Sort();
-            return list;
-        }
-
-        private static HashSet<int> GetListOfIds<T>(IEnumerable<T> blocks) where T : IBlock
-        {
-            var res = new HashSet<int>();
+            var set = new HashSet<int>();
             foreach (var block in blocks)
             {
                 for (int i = 0; i < 6; i++)
-                    res.Add(block.baseIds[i]);
+                    set.Add(block.baseIds[i]);
             }
-            res.Remove(0);
-            return res;
+            set.Remove(0);
+            
+            return new IDGenerator(set.OrderBy((x) => x));
         }
-
-        private static HashSet<int> GetListOfIds(IEnumerable<IBlock> blocks, int d)
+        private static IDGenerator CreateIDGenerator(IEnumerable<IBlock> blocks, int d)
         {
             int od = opposite[d];
-            var res = new HashSet<int>();
+            var set = new HashSet<int>();
             foreach (var block in blocks)
             {
                 var dId = block.baseIds[d];
                 var odId = block.baseIds[od];
-                res.Add(dId);
-                res.Add(odId);
+                set.Add(dId);
+                set.Add(odId);
             }
-            res.Remove(0);
-            return res;
+            set.Remove(0);
+            return new IDGenerator(set.OrderBy((x) => x));
         }
     }
 

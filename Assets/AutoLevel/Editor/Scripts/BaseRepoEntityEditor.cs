@@ -2,7 +2,6 @@
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
-using System.Security.Cryptography;
 
 namespace AutoLevel
 {
@@ -835,12 +834,7 @@ namespace AutoLevel
         }
         protected bool SideCullTest(Vector3 pos, int side)
         {
-            var vp = camera.projectionMatrix * camera.worldToCameraMatrix;
-            var c = vp.MultiplyPoint(GetSideCenter(pos, side));
-            var u = vp.MultiplyPoint(GetSideU(pos, side));
-            var v = vp.MultiplyPoint(GetSideV(pos, side));
-            Vector3 clipSpaceNormal = Vector3.Cross((u - c), (v - c));
-            return clipSpaceNormal.z >= 0;
+            return AutoLevelEditorUtility.SideCullTest(camera, pos + origins[side], side);
         }
         protected bool CubeFrustumTest(Vector3 pos)
         {

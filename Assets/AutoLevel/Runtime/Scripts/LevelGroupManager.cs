@@ -4,15 +4,23 @@ using System.Linq;
 
 namespace AutoLevel
 {
-    public class LevelGroupManager<T> : System.IDisposable
+    public class LevelGroupManager : BaseLevelGroupManager<LevelBuilder.Data>
+    {
+        public LevelGroupManager(bool useSolverMT = false) : base(useSolverMT) { }
+
+        protected override LevelBuilder.Data GetBuilderData(LevelBuilder builder)
+        => builder.data;
+    }
+
+    public abstract class BaseLevelGroupManager<T> : System.IDisposable
         where T : ILevelBuilderData
     {
         private List<HashSet<T>> builderGroups;
-        private List<LevelBuilderUtlity.LevelGroupBuilder> groupBuilders;
+        private List<LevelBuilderUtlity.LevelGroupSolver> groupBuilders;
         private List<T> buildersData;
         private Dictionary<BlocksRepo, BlocksRepo.Runtime> repos;
 
-        public LevelGroupManager(System.Func<LevelBuilder, T> Const)
+        public BaseLevelGroupManager(bool useSolverMT = false)
         {
             var allBuilders = Object.FindObjectsOfType<LevelBuilder>();
             List<LevelBuilder> validBuilders = new List<LevelBuilder>();
@@ -33,20 +41,22 @@ namespace AutoLevel
 
             buildersData = new List<T>();
             foreach (var builder in validBuilders)
-                buildersData.Add(Const(builder));
+                buildersData.Add(GetBuilderData(builder));
 
             builderGroups = LevelBuilderUtlity.GroupBuilders(buildersData);
 
-            groupBuilders = new List<LevelBuilderUtlity.LevelGroupBuilder>(builderGroups.Count);
+            groupBuilders = new List<LevelBuilderUtlity.LevelGroupSolver>(builderGroups.Count);
             foreach(var group in builderGroups)
             {
                 var groupRepos = new List<BlocksRepo.Runtime>(group.Count);
                 foreach(var builder in group)
                     groupRepos.Add(repos[builder.BlockRepo]);
 
-                groupBuilders.Add(new LevelBuilderUtlity.LevelGroupBuilder(group.Cast<ILevelBuilderData>(), groupRepos));
+                groupBuilders.Add(new LevelBuilderUtlity.LevelGroupSolver(group.Cast<ILevelBuilderData>(), groupRepos, useSolverMT));
             }
         }
+
+        protected abstract T GetBuilderData(LevelBuilder builder);
 
         public int GroupCount => builderGroups.Count;
         public IEnumerable<T> GetBuilderGroup(int i) => builderGroups[i];
@@ -65,15 +75,15 @@ namespace AutoLevel
 
         public bool Rebuild(int index, bool[] mask)
         {
-            var builders = new List<ILevelBuilderData>();
+            var buildersData = new List<LevelBuilder>();
             int i = 0;
-            foreach (var builder in builderGroups[index])
+            foreach (var builderData in builderGroups[index])
             {
                 if (mask[i++])
-                    builders.Add(builder);
+                    buildersData.Add(builderData.Builder);
             }
 
-            return groupBuilders[index].Rebuild(builders);
+            return groupBuilders[index].Rebuild(buildersData);
         }
 
         public void Dispose()

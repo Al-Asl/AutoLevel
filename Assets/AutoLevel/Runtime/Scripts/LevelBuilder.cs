@@ -13,7 +13,7 @@ namespace AutoLevel
     }
 
     [System.Serializable]
-    public class GroupBoundary
+    public class GroupBoundaryEntry
     {
         public List<int> groups = new List<int>();
     }
@@ -21,7 +21,7 @@ namespace AutoLevel
     [System.Serializable]
     public class BoundarySettings
     {
-        public GroupBoundary[] groupsBoundary = new GroupBoundary[6];
+        public GroupBoundaryEntry[] groupsBoundary = new GroupBoundaryEntry[6];
         public LevelBuilder[] levelBoundary = new LevelBuilder[6];
     }
 
@@ -44,6 +44,8 @@ namespace AutoLevel
             {
                 Builder = builder;
             }
+
+            public bool UseMutliThreadedSolver => Builder.useMutliThreadedSolver;
 
             public LevelBuilder Builder { get; set; }
 
@@ -69,13 +71,15 @@ namespace AutoLevel
         private BoundarySettings boundarySettings = new BoundarySettings();
 
         [SerializeField]
+        private bool useMutliThreadedSolver;
+        [SerializeField]
         private BoundsInt selection = new BoundsInt(Vector3Int.zero, Vector3Int.one);
         [SerializeField]
         private LevelData levelData = new LevelData(new BoundsInt(Vector3Int.zero, Vector3Int.one * k_start_size));
         [SerializeField]
         private Array3D<InputWaveCell> inputWave = new Array3D<InputWaveCell>(Vector3Int.one * k_start_size);
 
-        private LevelSolver solver;
+        private BaseLevelSolver solver;
         private BlocksRepo.Runtime repo;
         private LevelMeshBuilder meshBuilder;
 
@@ -89,7 +93,11 @@ namespace AutoLevel
         {
             if(solver == null)
             {
-                solver = new LevelSolver(levelData.Blocks.Size);
+                if(useMutliThreadedSolver)
+                    solver = new LevelSolverMT(levelData.Blocks.Size);
+                else
+                    solver = new LevelSolver(levelData.Blocks.Size);
+
                 repo = blockRepo.CreateRuntime();
                 meshBuilder = new LevelMeshBuilder(levelData, repo);
             }

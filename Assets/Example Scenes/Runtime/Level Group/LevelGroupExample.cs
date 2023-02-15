@@ -6,14 +6,14 @@ namespace AutoLevel.Examples
     // building a group of level builder at runtime
     public class LevelGroupExample : MonoBehaviour
     {
-        private LevelGroupManager<LevelBuilder.Data> groupManager;
+        private LevelGroupManager groupManager;
         private List<BaseLevelDataBuilder> builders;
 
         private void OnEnable()
         {
             // level group manager will find all the level builder in the scene and group the
             // connected builders together
-            groupManager = new LevelGroupManager<LevelBuilder.Data>((builder) => builder.data);
+            groupManager = new LevelGroupManager();
 
             // creating a LevelDataBuilder for each builder in the target group
             builders = new List<BaseLevelDataBuilder>();
@@ -25,7 +25,7 @@ namespace AutoLevel.Examples
         {
             if (Input.GetKeyDown(KeyCode.R))
             {
-                // solve all the level builder in the group with index 0, once the solver succeed
+                // solve all the level builder for the group with index 0, once the solver succeed
                 // we run the builders
                 if (groupManager.Solve(0))
                 {

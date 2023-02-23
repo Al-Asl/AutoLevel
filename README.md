@@ -115,6 +115,5 @@ The filling has two roles. First, the connections will only be made to blocks wi
 * There is a considerable cost when using a block group. This cost has been reduced significantly by creating a lookup table for group interaction, it still has a significant cost, but it offers great flexibility.
 
 ## WHATS NEXT
-* Adding multiple blocks per `Big Block` cell
 * Layers
 * Fine Block connection control

@@ -189,27 +189,24 @@ namespace AutoLevel
                         connectionsMap.Clear();
                         foreach (var conn in SpatialUtil.EnumerateConnections(data.Size))
                         {
-                            var srcA = data[conn.Item1];
-                            var srcB = data[conn.Item2];
+                            var A = data[conn.Item1];
+                            var B = data[conn.Item2];
 
-                            if (srcA.blockAsset == null || srcB.blockAsset == null) continue;
+                            if (A.IsEmpty || B.IsEmpty) continue;
 
-                            var idA = srcA.baseIds[conn.Item3];
-                            var idB = srcB.baseIds[Directions.opposite[conn.Item3]];
-                            if (idA != 0)
+                            var od = Directions.opposite[conn.Item3];
+
+                            foreach (var id in A.Select((block) => block.baseIds[conn.Item3]).Intersect
+                            (B.Select((block) => block.baseIds[od])))
                             {
-                                if (idA == idB)
-                                {
-                                    if(!connectionsMap.ContainsKey(idA))
-                                        connectionsMap[idA] = idGen.GetNext();
-                                }
-                                else
-                                    throw new System.Exception($"Repo generation failed! the blocks {srcA.blockAsset.name},{srcB.blockAsset.name} have different ids inside the big block {bigBlock.name}");
+                                if (id != 0 && !connectionsMap.ContainsKey(id))
+                                    connectionsMap[id] = idGen.GetNext();
                             }
                         }
+
                         var internalConnections = new List<int>(connectionsMap.Select((pair) => pair.Key));
 
-                        GenerateBlocks(data, new List<BlockAction>(), blocks);
+                        GenerateBlocks(bigBlock, new List<BlockAction>(), blocks);
 
                         //generate the states from the actions groups
                         foreach (var group in bigBlock.actionsGroups)
@@ -221,55 +218,86 @@ namespace AutoLevel
                                 foreach (var conn in internalConnections)
                                     connectionsMap[conn] = idGen.GetNext();
 
-                                GenerateBlocks(data, actionsGroup.actions, blocks);
+                                GenerateBlocks(bigBlock, actionsGroup.actions, blocks);
                             }
                         }
                     }
                 }
 
-                private void GenerateBlocks(Array3D<AssetBlock> srcData, List<BlockAction> actions, List<IBlock> blocks)
+                private void GenerateBlocks(BigBlockAsset bigBlock, List<BlockAction> actions, List<IBlock> blocks)
                 {
-                    Array3D<StandalnoeBlock> dstData = new Array3D<StandalnoeBlock>(srcData.Size);
+                    var srcData = bigBlock.data;
+                    var dstData = new Array3D<SList<StandalnoeBlock>>(srcData.Size);
                     foreach (var index in SpatialUtil.Enumerate(srcData.Size))
                     {
-                        var block = srcData[index];
-                        if(block.blockAsset != null)
-                            dstData[index] = block.CreateCopy();
+                        var src = srcData[index];
+                        if (src.IsEmpty) continue;
+
+                        var dst = new SList<StandalnoeBlock>();
+                        for (int i = 0; i < src.Count; i++)
+                            dst.Add(src[i].CreateCopy());
+
+                        dstData[index] = dst;
                     }
 
+                    var map = new Dictionary<int, int>();
                     foreach (var conn in SpatialUtil.EnumerateConnections(srcData.Size))
                     {
-                        var srcA = srcData[conn.Item1];
-                        var srcB = srcData[conn.Item2];
+                        var A = dstData[conn.Item1];
+                        var B = dstData[conn.Item2];
 
-                        if (srcA.blockAsset == null || srcB.blockAsset == null) continue;
+                        if (A == null || A.IsEmpty || B == null || B.IsEmpty) continue;
 
-                        var id = srcA.baseIds[conn.Item3];
+                        var od = Directions.opposite[conn.Item3];
+                        
+                        map.Clear();
+                        foreach (var id in A.Select((block) => block.baseIds[conn.Item3]).Intersect
+                            (B.Select((block) => block.baseIds[od])))
+                        {
+                            if (id == 0)
+                                map[id] = idGen.GetNext();
+                            else
+                                map[id] = connectionsMap[id];
+                        }
 
-                        if (id == 0)
-                            id = idGen.GetNext();
-                        else
-                            id = connectionsMap[id];
+                        for (int i = 0; i < A.Count; i++)
+                        {
+                            var id = A[i].baseIds[conn.Item3];
+                            if(map.ContainsKey(id))
+                            SetID(A, i, conn.Item3,map[id]);
+                        }
 
-                        SetID(dstData, conn.Item1, conn.Item3, id);
-                        SetID(dstData, conn.Item2, Directions.opposite[conn.Item3], id);
+                        for (int i = 0; i < B.Count; i++)
+                        {
+                            var id = B[i].baseIds[od];
+                            if (map.ContainsKey(id))
+                                SetID(B, i, od, map[id]);
+                        }
                     }
 
                     var count = dstData.Size.x * dstData.Size.y * dstData.Size.z;
 
                     foreach (var index in SpatialUtil.Enumerate(dstData.Size))
                     {
-                        var block = dstData[index];
-                        if (block.gameObject == null)
+                        var list = dstData[index];
+                        if (list == null || list.IsEmpty)
                             continue;
 
-                        block.ApplyActions(actions);
-                        block.weight /= count;
-                        blocks.Add(block);
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            var block = list[i];
+                            block.ApplyActions(actions);
+                            if (bigBlock.overrideGroup)
+                                block.group = bigBlock.group;
+                            if (bigBlock.overrideWeightGroup)
+                                block.weightGroup = bigBlock.weightGroup;
+                            block.weight /= count;
+                            blocks.Add(block);
+                        }
                     }
                 }
 
-                private void SetID(Array3D<StandalnoeBlock> array, Vector3Int index, int d, int id)
+                private void SetID(SList<StandalnoeBlock> array, int index, int d, int id)
                 {
                     var block = array[index];
                     var baseIds = block.baseIds;
@@ -396,7 +424,7 @@ namespace AutoLevel
                         lastGroup++;
                     }
                 }
-                for (int i = 0; i < groups.Count - groupStartIndex.Count; i++)
+                while(groups.Count != groupStartIndex.Count)
                     groupStartIndex.Add(allBlocks.Count - 1);
 
                 var templateGenerator = new BlockGOTemplateGenerator();

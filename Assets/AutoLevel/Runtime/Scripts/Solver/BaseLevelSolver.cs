@@ -15,6 +15,27 @@ namespace AutoLevel
         // wc wave cell | iwc input wave cell | lc level cell
         // n neighbor
 
+        protected enum SolveStage
+        {
+            Fill,
+            ValidateInteriorBoundary,
+            ValidateExteriorBoundary,
+            Propagate,
+            Observe
+        }
+        protected class BaseSolverException : Exception { }
+        protected class BuildFailedException : BaseSolverException
+        {
+            public SolveStage stage;
+            public Vector3Int index;
+
+            public BuildFailedException(SolveStage stage,Vector3Int index)
+            {
+                this.stage = stage;
+                this.index = index;
+            }
+        }
+
         protected enum Result
         {
             Success,
@@ -78,7 +99,11 @@ namespace AutoLevel
         {
             threadID = System.Threading.Thread.CurrentThread.ManagedThreadId;
 
-            rand = new System.Random(seed + (int)DateTime.Now.Ticks);
+            if (seed == 0)
+                rand = new System.Random((int)(DateTime.Now.Ticks % int.MaxValue));
+            else
+                rand = new System.Random(seed);
+
             solveBounds = bounds;
             if (solveBounds.size.x > size.x || solveBounds.size.y > size.y || solveBounds.size.z > size.z)
                 throw new System.Exception("solving bounds need to be smaller than solver size");
@@ -87,7 +112,25 @@ namespace AutoLevel
 
             for (int t = 0; t < iteration; t++)
             {
-                if (Run() == Result.Success)
+
+                var result = Result.Fail;
+
+#if AUTOLEVEL_DEBUG
+                try
+                {
+                    result = Run();
+                }
+                catch(BuildFailedException ex)
+                {
+                    Debug.LogError($"build failed at stage {ex.stage}");
+                    LogWave(ex.index);
+                    return 0;
+                }
+#else
+                result = Run();
+#endif
+
+                if (result == Result.Success)
                 {
                     Profiling.StartTimer(fill_leveldata_pk + threadID);
                     FillLevelData();
@@ -107,39 +150,20 @@ namespace AutoLevel
             Fill();
             Profiling.PauseTimer(fill_pk + threadID);
 
-#if AUTOLEVEL_DEBUG
-            Debug.Log("verify wave after fill");
-            if (!VerifyWave())
-                return Result.Fail;
-#endif
-
             Profiling.StartTimer(interior_boundary_pk + threadID);
             ValidateInteriorBoundary();
             Profiling.PauseTimer(interior_boundary_pk + threadID);
 
-#if AUTOLEVEL_DEBUG
-            Debug.Log("verify wave after validating interior boundary");
-            if (!VerifyWave())
-                return Result.Fail;
-#endif
-
             Profiling.StartTimer(exterior_boundar_pk + threadID);
             ValidateExteriorBoundary();
             Profiling.PauseTimer(exterior_boundar_pk + threadID);
-
-#if AUTOLEVEL_DEBUG
-            Debug.Log("verify wave after validating exterior boundary");
-            if (!VerifyWave())
-                return Result.Fail;
-#endif
 
             Profiling.StartTimer(observe_pk + threadID, true);
             Profiling.StartTimer(propagate_pk + threadID, true);
             while (true)
             {
                 Profiling.ResumeTimer(propagate_pk + threadID);
-                if(!Propagate())
-                    return Result.Fail;
+                Propagate();
                 Profiling.PauseTimer(propagate_pk + threadID);
 
                 Profiling.ResumeTimer(observe_pk + threadID);
@@ -163,7 +187,7 @@ namespace AutoLevel
         protected abstract void Fill();
         protected abstract void ValidateInteriorBoundary();
         protected abstract void ValidateExteriorBoundary();
-        protected abstract bool Propagate();
+        protected abstract void Propagate();
         protected abstract Result Observe();
         protected abstract void Ban(Possibility poss);
         protected abstract IEnumerable<int> EnumareteBlocksInWaveCell(Vector3Int index);
@@ -313,6 +337,11 @@ namespace AutoLevel
                     ValidateWaveSide(li, result.waveBlock, d, rlist);
                     break;
             }
+#if AUTOLEVEL_DEBUG
+            var index = li - solveBounds.min;
+            if (EnumareteBlocksInWaveCell(index).Count() == 0)
+                throw new BuildFailedException(SolveStage.ValidateExteriorBoundary, index);
+#endif
         }
         protected void ValidateInternalSide(Vector3Int li, int d
             , List<int> rlist, HashSet<int> rset)
@@ -329,6 +358,11 @@ namespace AutoLevel
             }
             else
                 ValidateWaveSide(li, nlc, d, rset);
+#if AUTOLEVEL_DEBUG
+            var index = li - solveBounds.min;
+            if (EnumareteBlocksInWaveCell(index).Count() == 0)
+                throw new BuildFailedException(SolveStage.ValidateInteriorBoundary, index);
+#endif
         }
 
 
@@ -419,7 +453,11 @@ namespace AutoLevel
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.transform.position = wPos + Vector3.one * 0.5f;
             cube.transform.SetParent(root.transform);
-            cube.GetComponent<MeshRenderer>().material.color = Color.red;
+
+#if UNITY_EDITOR
+            if(UnityEditor.EditorApplication.isPlaying)
+                cube.GetComponent<MeshRenderer>().material.color = Color.red;
+#endif
 
             string message = "build failed \n";
             message += "input wave info:\n";
@@ -454,6 +492,16 @@ namespace AutoLevel
                         poss.name = res.mesh.name;
                         poss.AddComponent<MeshFilter>().sharedMesh = res.mesh;
                         poss.AddComponent<MeshRenderer>().sharedMaterial = res.material;
+                    }
+                    else
+                    {
+                        var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP)).x;
+                        var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP)).x;
+
+                        if (block == solid)
+                            poss.name = BlocksRepo.SOLID_GROUP;
+                        else if (block == empty)
+                            poss.name = BlocksRepo.EMPTY_GROUP;
                     }
 
                     poss.transform.SetParent(cell.transform, false);

@@ -53,6 +53,10 @@ namespace AutoLevel
                             conn[opposite[d]] = repo.Connections[d][b].Length;
                         wc[b] = conn;
                     }
+#if AUTOLEVEL_DEBUG
+                    if (wc.Count == 0)
+                        throw new BuildFailedException(SolveStage.Fill, index);
+#endif
                 }
             }
             else
@@ -71,7 +75,13 @@ namespace AutoLevel
                     counter[i] = new int[repo.BlocksCount];
 
                 foreach (var index in SolverVolume)
+                {
                     FillCell(index, counter);
+#if AUTOLEVEL_DEBUG
+                    if (wave[index.z,index.y,index.x].Count == 0)
+                        throw new BuildFailedException(SolveStage.Fill, index);
+#endif
+                }
             }
         }
         private void FillCell(Vector3Int index, int[][] counter)
@@ -209,7 +219,7 @@ namespace AutoLevel
                     ValidateExteriorSide(i.xyn(), d, picker, rlist, rset);
         }
 
-        protected override bool Propagate()
+        protected override void Propagate()
         {
             while (stack.Count > 0)
             {
@@ -235,17 +245,12 @@ namespace AutoLevel
 
                     #if AUTOLEVEL_DEBUG
                         if (nwc.Count == 0)
-                        {
-                            LogWave(ni);
-                            return false;
-                        }
+                            throw new BuildFailedException(SolveStage.Propagate,ni);
                     #endif
 
                     }
                 }
             }
-
-            return true;
         }
 
         protected override Result Observe()
@@ -259,8 +264,11 @@ namespace AutoLevel
                 int pCount = wave[index.z, index.y, index.x].Count;
                 if (pCount == 0)
                 {
-                    //TODO : Log State
+#if AUTOLEVEL_DEBUG
+                    throw new BuildFailedException(SolveStage.Observe, index);
+#else
                     return Result.Fail;
+#endif
                 }
 
                 if (pCount > 1)

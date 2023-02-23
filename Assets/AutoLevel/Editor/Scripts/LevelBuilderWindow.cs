@@ -16,12 +16,6 @@ namespace AutoLevel
 
     public class LevelBuilderWindow : EditorWindow
     {
-        [MenuItem("AutoLevel/Level Builder Window")]
-        static void Open()
-        {
-            var window = CreateWindow<LevelBuilderWindow>("Level Builder Window");
-        }
-
         private LevelEditorSettingsEditor SettingsEditor;
 
         private EditorLevelGroupManager groupManager;

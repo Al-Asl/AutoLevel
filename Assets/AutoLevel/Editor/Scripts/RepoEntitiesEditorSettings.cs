@@ -1,5 +1,6 @@
 ﻿using UnityEditor;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -24,7 +25,7 @@ namespace AutoLevel
     {
         public static RepoEntitiesEditorSettings GetSettings()
         {
-            var scriptDir = System.IO.Path.Combine(EditorHelper.GetScriptDirectory<RepoEntitiesEditorSettings>(), "Resources");
+            var scriptDir = System.IO.Path.Combine(EditorHelper.GetAssemblyDirectory<RepoEntitiesEditorSettings>(),"Scripts" ,"Resources");
             var path = System.IO.Path.Combine(scriptDir, "Repo Entities Settings.asset");
             var settings = AssetDatabase.LoadAssetAtPath<RepoEntitiesEditorSettings>(path);
             if (settings == null)

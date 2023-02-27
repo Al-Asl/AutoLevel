@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -20,6 +21,7 @@ namespace AutoLevel
         private SO settingsSO;
         public LevelEditorSettings.Settings Settings => settingsSO.settings;
 
+        public void Apply() => settingsSO.Apply();
         public void Draw()
         {
             EditorGUI.BeginChangeCheck();
@@ -75,7 +77,7 @@ namespace AutoLevel
         {
             if (instance == null)
             {
-                var scriptDir = System.IO.Path.Combine(EditorHelper.GetScriptDirectory<LevelEditorSettings>(), "Resources");
+                var scriptDir = System.IO.Path.Combine(EditorHelper.GetAssemblyDirectory<LevelEditorSettings>(),"Scripts" ,"Resources");
                 var path = System.IO.Path.Combine(scriptDir, "Level Settings.asset");
                 instance = AssetDatabase.LoadAssetAtPath<LevelEditorSettings>(path);
                 if (instance == null)
@@ -103,6 +105,8 @@ namespace AutoLevel
             public int MaxIterations;
             [Space]
             public int ExportSize;
+            [Space]
+            public int Tool;
         }
     }
 

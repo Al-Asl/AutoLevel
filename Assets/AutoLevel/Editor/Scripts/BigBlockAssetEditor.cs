@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEditor;
+using AlaslTools;
 
 
 namespace AutoLevel
@@ -107,6 +108,8 @@ namespace AutoLevel
 
             blockAsset.overrideGroup = GUILayout.Toggle(blockAsset.overrideGroup, "Override Group", GUI.skin.button , GUILayout.Width(150));
 
+            GUILayout.FlexibleSpace();
+
             if(blockAsset.overrideGroup)
             {
                 int group = GetGroupIndex(blockAsset.group);
@@ -120,7 +123,9 @@ namespace AutoLevel
 
             blockAsset.overrideWeightGroup = GUILayout.Toggle(blockAsset.overrideWeightGroup, "Override Weight Group", GUI.skin.button, GUILayout.Width(150));
 
-            if(blockAsset.overrideWeightGroup)
+            GUILayout.FlexibleSpace();
+
+            if (blockAsset.overrideWeightGroup)
             {
                 int weightGroup = GetWeightGroupIndex(blockAsset.weightGroup);
                 weightGroup = EditorGUILayout.Popup("", weightGroup, allWeightGroups);
@@ -217,10 +222,7 @@ namespace AutoLevel
             DrawConnections(activeConnections);
 
             if (editMode == EditMode.EditCell)
-            {
-                DoVisibilityHandle();
                 DrawGrid();
-            }
 
             DrawBounds(bounds, Color.yellow);
 
@@ -229,6 +231,9 @@ namespace AutoLevel
 
             if ((int)(editMode & EditMode.EditConnections) > 0)
                 DoConnectionEditing();
+
+            if (editMode == EditMode.EditCell)
+                DoVisibilityHandle();
 
             HandleTool();
 
@@ -241,15 +246,15 @@ namespace AutoLevel
         {
             var visibilityHandleDraw = GetDrawCmd().
                         SetPrimitiveMesh(PrimitiveType.Cube).
-                        SetMaterial(MaterialType.OpaqueShaded).
+                        SetMaterial(MaterialType.UI).
                         SetColor(Color.green).Scale(0.25f).
                         Move(transform.position + Vector3.up * visibilityLevel + ((Vector3)data.Size).xz().xny());
 
             Drag.SetAll(visibilityHandleDraw);
 
-            Drag.normal.SetColor(Color.green);
-            Drag.hover.SetColor(Color.yellow);
-            Drag.active.SetColor(Color.cyan);
+            Drag.normal.SetColor(NiceColors.Pistachio);
+            Drag.hover.SetColor(NiceColors.Saffron);
+            Drag.active.SetColor(NiceColors.ImperialRed);
 
             if (Drag.Draw<CubeD>())
             {
@@ -271,7 +276,7 @@ namespace AutoLevel
         {
             GetDrawCmd().
                SetPrimitiveMesh(PrimitiveType.Cube).
-               SetMaterial(handleRes.GridMat).
+               SetMaterial(HandleEx.GridMaterial).
                Scale(visibilityBounds.size).
                Move(visibilityBounds.size * 0.5f + transform.position).
                Draw();
@@ -287,7 +292,7 @@ namespace AutoLevel
                 SetPrimitiveMesh(PrimitiveType.Cube).
                 SetMaterial(handleRes.ButtonCubeMat).
                 Move(GetCellCenterPosition(index)).
-                SetColor(Color.cyan).
+                SetColor(NiceColors.CarrotRrange).
                 Draw();
         }
         private void DoCellPicking()
@@ -312,9 +317,9 @@ namespace AutoLevel
                 Move(GetCellCenterPosition(highLightedIndex));
 
             Button.SetAll(buttonDraw);
-            Button.normal.SetColor(Color.yellow);
-            Button.hover.SetColor(Color.yellow);
-            Button.active.SetColor(Color.green);
+            Button.normal.SetColor(NiceColors.DarkCyan);
+            Button.hover.SetColor(NiceColors.Cerulean);
+            Button.active.SetColor(NiceColors.Cerulean);
 
             if (Button.Draw<CubeD>())
             {

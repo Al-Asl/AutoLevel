@@ -1,6 +1,7 @@
 ﻿using UnityEditor;
 using UnityEditor.Formats.Fbx.Exporter;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -49,12 +50,7 @@ namespace AutoLevel
 
         public static bool SideCullTest(Camera camera, Vector3 pos, int side)
         {
-            var vp = camera.projectionMatrix * camera.worldToCameraMatrix;
-            var c = vp.MultiplyPoint(pos);
-            var u = vp.MultiplyPoint(pos + directionsU[side]);
-            var v = vp.MultiplyPoint(pos + directionsV[side]);
-            Vector3 clipSpaceNormal = Vector3.Cross((u - c), (v - c));
-            return clipSpaceNormal.z >= 0;
+            return GeometryUtils.TriCullTest(camera, pos, pos + directionsU[side], pos + directionsV[side]);
         }
     }
 }

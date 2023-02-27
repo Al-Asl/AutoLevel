@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using AlaslTools;
 
 namespace AutoLevel
 {
-
     public enum BlockAction
     {
         RotateX,
@@ -138,7 +138,7 @@ namespace AutoLevel
             switch (action)
             {
                 case BlockAction.RotateX:
-                    pivot.transform.RotateAround(Vector3.one*0.5f,Vector3.right,90);
+                    pivot.transform.RotateAround(Vector3.one * 0.5f, Vector3.right, 90);
                     break;
                 case BlockAction.RotateY:
                     pivot.transform.RotateAround(Vector3.one * 0.5f, Vector3.up, 90);
@@ -148,32 +148,26 @@ namespace AutoLevel
                     break;
                 case BlockAction.MirrorX:
                     {
-                        var scale = pivot.transform.localScale;
-                        pivot.transform.localPosition += Vector3.right * scale.x;
-                        scale.x *= -1;
-                        pivot.transform.localScale = scale;
+                        pivot.transform.position = Vector3.right;
+                        pivot.transform.localScale = new Vector3(-1, 1, 1);
                     }
                     break;
                 case BlockAction.MirrorY:
                     {
-                        var scale = pivot.transform.localScale;
-                        pivot.transform.localPosition += Vector3.right * scale.y;
-                        scale.y *= -1;
-                        pivot.transform.localScale = scale;
+                        pivot.transform.position = Vector3.up;
+                        pivot.transform.localScale = new Vector3(1, -1, 1);
                     }
                     break;
                 case BlockAction.MirrorZ:
                     {
-                        var scale = pivot.transform.localScale;
-                        pivot.transform.localPosition += Vector3.right * scale.z;
-                        scale.z *= -1;
-                        pivot.transform.localScale = scale;
+                        pivot.transform.position = Vector3.forward;
+                        pivot.transform.localScale = new Vector3(1, 1, -1);
                     }
                     break;
             }
 
             go.transform.SetParent(null);
-            GameObject.DestroyImmediate(pivot.gameObject,false);   
+            GameObjectUtil.SafeDestroy(pivot.gameObject);
         }
     }
 

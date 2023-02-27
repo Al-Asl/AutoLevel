@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   settings:
     DrawSelfConnections: 1
-    MaxConnectionsDrawCount: -67
-    EditMode: 1
+    MaxConnectionsDrawCount: 25
+    EditMode: 0
     DrawVariants: 1

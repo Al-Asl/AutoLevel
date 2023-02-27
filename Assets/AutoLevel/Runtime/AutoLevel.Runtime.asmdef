@@ -1,3 +1,16 @@
 {
-	"name": "AutoLevel.Runtime"
+    "name": "AutoLevel.Runtime",
+    "rootNamespace": "",
+    "references": [
+        "GUID:7f22184015f381a4f834e426b3f69927"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

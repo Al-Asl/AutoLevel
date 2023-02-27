@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -24,6 +25,18 @@ namespace AutoLevel
             Observe
         }
         protected class BaseSolverException : Exception { }
+        protected class NoRepoException : BaseSolverException
+        {
+            public override string Message => "The Repo isn't assigned!";
+        }
+        protected class InvalidSolveBoundException : BaseSolverException
+        {
+            public override string Message => "invalid solving bounds!";
+        }
+        protected class ZeroVolumeException : BaseSolverException
+        {
+            public override string Message => "the volume size is zero!";
+        }
         protected class BuildFailedException : BaseSolverException
         {
             public SolveStage stage;
@@ -97,16 +110,23 @@ namespace AutoLevel
 
         public int Solve(BoundsInt bounds, int iteration = 10, int seed = 0)
         {
+            if (repo == null)
+                throw new NoRepoException();
+
+            solveBounds = bounds;
+
+            if (solveBounds.size.x == 0 || solveBounds.size.y == 0 || solveBounds.size.z == 0)
+                throw new ZeroVolumeException();
+
+            if (solveBounds.size.x > size.x || solveBounds.size.y > size.y || solveBounds.size.z > size.z)
+                throw new InvalidSolveBoundException();
+
             threadID = System.Threading.Thread.CurrentThread.ManagedThreadId;
 
             if (seed == 0)
                 rand = new System.Random((int)(DateTime.Now.Ticks % int.MaxValue));
             else
                 rand = new System.Random(seed);
-
-            solveBounds = bounds;
-            if (solveBounds.size.x > size.x || solveBounds.size.y > size.y || solveBounds.size.z > size.z)
-                throw new System.Exception("solving bounds need to be smaller than solver size");
 
             blocksCount = bounds.size.x * bounds.size.y * bounds.size.z;
 
@@ -211,7 +231,7 @@ namespace AutoLevel
             if(inputWave != null)
             {
                 if (inputWave.Size.x == 0 || inputWave.Size.y == 0 || inputWave.Size.z == 0)
-                    throw new Exception("input wave volume is zero");
+                    throw new ZeroVolumeException();
             }
 
             this.inputWave = inputWave;
@@ -229,6 +249,9 @@ namespace AutoLevel
 
         public void OverrideGroupsWeights(List<float> groupOverride)
         {
+            if (repo == null)
+                throw new NoRepoException();
+
             blockWeights.Clear();
             blockWeights.AddRange(repo.GetBlocksWeight());
 

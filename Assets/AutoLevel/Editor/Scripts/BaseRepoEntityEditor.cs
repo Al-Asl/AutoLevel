@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
-using Codice.CM.Common;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -88,8 +88,10 @@ namespace AutoLevel
         protected static Color BlockSideHoverColor = Color.white * 0.7f;
         protected static Color BlockSideActiveColor = Color.white * 0.7f;
 
-        private Material outlineMat;
         private Texture removeIcon;
+
+        private List<GameObject> assetBlocksGO = new List<GameObject>();
+        private Dictionary<int, Material> assetBlocksMat = new Dictionary<int, Material>();
 
         protected string[] allGroups;
         protected string[] allWeightGroups;
@@ -109,10 +111,9 @@ namespace AutoLevel
 
             activeConnections = new List<Connection>();
 
-            var basePath = System.IO.Path.Combine(EditorHelper.GetScriptDirectory<LevelBuilderEditor>(), "Resources");
+            var basePath = System.IO.Path.Combine(EditorHelper.GetAssemblyDirectory<LevelBuilderEditor>(), "Scripts", "Resources");
             removeIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
                 System.IO.Path.Combine(basePath, "BigBlockRemove.png"));
-            outlineMat = new Material(Shader.Find("Hidden/AutoLevel/Outline"));
 
             SceneView.beforeSceneGui += BeforeSceneGUI;
         }
@@ -123,7 +124,11 @@ namespace AutoLevel
             handleRes.Dispose();
             DestroyImmediate(settingsEditor);
 
-            DestroyImmediate(outlineMat);
+            foreach (var pair in assetBlocksMat)
+                DestroyImmediate(pair.Value, false);
+            assetBlocksMat.Clear();
+
+            ClearAssetsBlocks();
 
             SceneView.beforeSceneGui -= BeforeSceneGUI;
         }
@@ -358,7 +363,7 @@ namespace AutoLevel
 
                 for (int j = 0; j < rays.Length; j++)
                 {
-                    if (MeshUtility.RayTriangleIntersect(rays[j], v0, v1, v2,
+                    if (rays[j].RayTriangleIntersect(v0, v1, v2,
                         ref t, ref bary, ref normal))
                     {
                         rayHit[j] = true;
@@ -409,63 +414,42 @@ namespace AutoLevel
 
         protected void DrawAssetsBlocks()
         {
-            foreach(var blockItem in GetBlocksIt(AssetType.BlockAsset).
+            var blocks = GetBlocksIt(AssetType.BlockAsset).
                 Where((block) => block.Item1.VariantIndex != 0).
-                Concat(GetBlocksIt(AssetType.BigBlockAssetFirst)))
-                BlockDC(blockItem.Item1).Move(blockItem.Item2).Draw();
-        }
-        protected DrawCommand BlockDC(IBlock block)
-        {
-            var material = BlockUtility.GetMaterial(block.gameObject);
-            var mesh = block.baseMesh;
+                Concat(GetBlocksIt(AssetType.BigBlockAssetFirst));
 
-            var cmd = GetDrawCmd().SetMesh(mesh).SetMaterial(handleRes.VariantMat);
-            int revert = 0; int flips = 0;
-
-            if (material != null)
-                cmd.SetTexture(material.GetTexture("_MainTex"));
-
-            for (int k = 0; k < block.actions.Count; k++)
+            if(assetBlocksGO.Count != blocks.Count())
             {
-                var ac = block.actions[k];
-                var pivot = Vector3.one * 0.5f;
-                switch (ac)
+                ClearAssetsBlocks();
+
+                foreach(var block in blocks)
                 {
-                    case BlockAction.RotateX:
-                        cmd.RotateAround(pivot, Quaternion.AngleAxis(90f, Vector3.right));
-                        break;
-                    case BlockAction.RotateY:
-                        cmd.RotateAround(pivot, Quaternion.AngleAxis(90f, Vector3.up));
-                        break;
-                    case BlockAction.RotateZ:
-                        cmd.RotateAround(pivot, Quaternion.AngleAxis(90f, Vector3.forward));
-                        break;
-                    case BlockAction.MirrorX:
-                        cmd = cmd.Move(-pivot).Scale(new Vector3(-1, 1, 1)).Move(pivot);
-                        revert++;
-                        break;
-                    case BlockAction.MirrorY:
-                        cmd = cmd.Move(-pivot).Scale(new Vector3(1, -1, 1)).Move(pivot);
-                        revert++;
-                        break;
-                    case BlockAction.MirrorZ:
-                        cmd = cmd.Move(-pivot).Scale(new Vector3(1, 1, -1)).Move(pivot);
-                        revert++;
-                        break;
-                    case BlockAction.Flip:
-                        revert++;
-                        flips++;
-                        break;
+                    var b = new GameObject(block.Item1.blockAsset.name);
+                    b.hideFlags = HideFlags.HideAndDontSave;
+
+                    b.AddComponent<MeshFilter>().sharedMesh = block.Item1.baseMesh;
+                    b.AddComponent<MeshRenderer>().sharedMaterial = BlockUtility.GetMaterial(block.Item1.gameObject);
+                    foreach(var action in block.Item1.actions)
+                        ActionsUtility.ApplyAction(b, action);
+
+                    var go = new GameObject(block.Item1.blockAsset.name);
+                    go.hideFlags = HideFlags.HideAndDontSave;
+                    b.transform.SetParent(go.transform);
+
+                    assetBlocksGO.Add(go);
                 }
+            }else
+            {
+                int i = 0;
+                foreach (var block in blocks)
+                    assetBlocksGO[i++].transform.position = block.Item2;
             }
-
-            handleRes.VariantMat.SetFloat("_NormalMulti", flips % 2 > 0 ? -1 : 1);
-            if (revert % 2 > 0)
-                handleRes.VariantMat.SetFloat("_Cull", 1);
-            else
-                handleRes.VariantMat.SetFloat("_Cull", 2);
-
-            return cmd;
+        }
+        private void ClearAssetsBlocks()
+        {
+            for (int i = 0; i < assetBlocksGO.Count; i++)
+                GameObjectUtil.SafeDestroy(assetBlocksGO[i]);
+            assetBlocksGO.Clear();
         }
 
         protected void DrawAssetsBlocksSides(IEnumerable<MonoBehaviour> targets)
@@ -509,9 +493,9 @@ namespace AutoLevel
 
                     Button.SetAll(buttonDC);
                     Button.normal.SetColor(new Color());
-                    Button.hover.SetColor(BlockSideHoverColor);
+                    Button.hover.SetColor(new Color().SetAlpha(BlockSideActiveColor.a));
                     Button.active.SetColor(BlockSideActiveColor);
-                    if (Button.Draw<CubeD>())
+                    if (Button.Draw<Cube3DD>())
                         Selection.activeGameObject = bigBlock.gameObject;
                 }
             }
@@ -653,7 +637,7 @@ namespace AutoLevel
             Button.normal.SetColor(BlockSideNormalColor);
             Button.hover.SetColor(BlockSideHoverColor);
             Button.active.SetColor(BlockSideActiveColor);
-            return Button.Draw<CubeD>();
+            return Button.Draw<Cube3DD>();
         }
         protected bool BlockSideButton(BlockSide blockSide, float size, float alpha = 1f) => BlockSideButton(blockSide, GetPositionFromBlockAsset(blockSide.block), size, alpha);
         protected bool BlockSideButton(BlockSide blockSide, Vector3 position, float size, float alpha = 1f)
@@ -669,7 +653,7 @@ namespace AutoLevel
             Button.normal.color *= BlockSideNormalColor * alpha;
             Button.hover.color *= BlockSideHoverColor * alpha;
             Button.active.color *= BlockSideActiveColor * alpha;
-            return Button.Draw<QuadD>();
+            return Button.Draw<Quad3DD>();
         }
 
         protected DrawCommand BlockSidesDC(IBlock block, Vector3 position)
@@ -720,7 +704,7 @@ namespace AutoLevel
             //Draw the line
 
             {
-                Handles.color = Color.cyan;
+                Handles.color = NiceColors.Saffron;
                 Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
                 Handles.DrawLine(GetPositionFromBlockAsset(block) + Vector3.one * 0.5f,
                                 GetPositionFromBigBlockAsset(block) + Vector3.one * 0.5f, 3);
@@ -734,13 +718,13 @@ namespace AutoLevel
 
                 GetDrawCmd().
                     SetPrimitiveMesh(PrimitiveType.Cube).
-                    SetMaterial(outlineMat).
+                    SetMaterial(HandleEx.OutLineMaterial).
                     Scale(0.95f).Move(pos).Draw();
 
                 GetDrawCmd().
                     SetPrimitiveMesh(PrimitiveType.Cube).
-                    SetMaterial(outlineMat).
-                    SetColor(Color.cyan).
+                    SetMaterial(HandleEx.OutLineMaterial).
+                    SetColor(NiceColors.Saffron).
                     Move(pos).Draw(pass: 1);
             }
         }
@@ -1014,7 +998,7 @@ namespace AutoLevel
         }
         protected Color GetColor(int id)
         {
-            return ColorUtility.GetColor(new XXHash().Append(id));
+            return AlaslTools.ColorUtility.GetColor(new XXHash().Append(id));
         }
         protected Vector3 GetBlockPosition(IBlock block)
         {

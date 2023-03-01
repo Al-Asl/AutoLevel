@@ -26,7 +26,7 @@ git clone --recurse-submodules https://github.com/Al-Asl/AutoLevel.git
 Auto level consists of the following components:
 
 * `Level Builder` where you can do all of your constraints, building, and exporting.
-<img src="documentation/images/levelbuilder.png" width="900px"/>
+<img src="documentation/images/levelBuilder.png" width="900px"/>
 
 * `Block Repo` is the resource needed by the `Level Builder` to run, it basically contains the pieces and the relationship between them.
 <img src="documentation/images/blockrepo.png" width="900px"/>
@@ -36,7 +36,7 @@ Auto level consists of the following components:
 
 You can get started by watching the [tutorial](https://www.youtube.com/watch?v=1-M3W0y42L4).
 
-you can also check the API usage to build the level at runtime check out the `Example Scenes\Runtime`
+you can also check the API usage to build the level at runtime by checking `Example Scenes\Runtime`
 
 **FILLING**
 

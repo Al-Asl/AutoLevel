@@ -954,7 +954,7 @@ namespace AutoLevel
                             using(var so = new SO(builder))
                             {
                                 var delta = Vector3Int.zero;
-                                delta[d % 3] = so.levelData.bounds.size[d % 3];
+                                delta[d % 3] = so.levelData.bounds.size[d % 3] * (d < 3 ? -1 : 1);
                                 so.levelData.position += delta;
 
                                 so.ApplyLevelData();

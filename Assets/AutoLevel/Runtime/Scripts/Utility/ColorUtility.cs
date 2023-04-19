@@ -1,12 +1,17 @@
 ﻿using UnityEngine;
 
-public static class ColorUtility
+namespace AutoLevel
 {
-    public static Color GetColor(int hash)
+
+    public static class ColorUtility
     {
-        return new Color(
-            (hash & 255) / 255f,
-            ((hash >> 8) & 255) / 255f,
-            ((hash >> 16) & 255) / 255f);
+        public static Color GetColor(int hash)
+        {
+            return new Color(
+                (hash & 255) / 255f,
+                ((hash >> 8) & 255) / 255f,
+                ((hash >> 16) & 255) / 255f);
+        }
     }
+
 }

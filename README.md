@@ -1,6 +1,6 @@
 # Auto-Level
 
-<img src="documentation/images/autolevel.gif"/>
+<img src="documentation/images/autolevel.gif" width="900px"/>
 
 Free procural level generator based on WFC algorithm for unity.
 
@@ -9,31 +9,36 @@ The target of this package is to create a procural level generator that is contr
 ## Features
 * Runtime WFC solver
 * Editor tools, build level inside the editor
-* Set the weight for individual tiles or tiles group
-* Control the generation process, constrain volume to groups of tiles
-* Ability to rebuild a small section of the level
-* Tile variants and tiles group variants
-* Mesh builder that supports multiable materials input, with the ability to subdivide the level into chunks
+* Set the weight for individual Blocks or Block Group
+* Control the generation process, and constrain volume to groups of Blocks
+* Constrain boundary to a single group or another builder boundary
+* Ability to rebuild a given section of the level
+* Block variants and Block group variants
+* Big block support
+* Mesh builder that supports multiple materials input, with the ability to subdivide the level into chunks
 * fbx export
+* Child objects export
 
 Complete C# source code is provided.
 
 ## Usage
 
 * Create the `Blocks Repo` by clicking 'GameObject/AutoLevel/Blocks Repo'
-* Place tiles under the `Blocks Repo` in the hierarchy. Make sure that the mesh is read/write enabled in the import settings, and the tiles are in the range (0,0,0) (1,1,1)
-* Add the `Block Asset` component to the tiles
-* Select a tile and start making connections in the scene view. Remember to change the editing mode to connection. After the connections are made, the `Blocks Repo` is ready to use
+* Place Blocks under the `Blocks Repo` in the hierarchy. Make sure that the mesh is read/write enabled in the import settings, and the Blocks are in the range (0,0,0) (1,1,1), and their pivot is in the bottom back left corner.
+* Add the `Block Asset` component to the Blocks
+* Select a Block and start making connections in the scene view. Remember to change the editing mode to connection. After the connections are made, the `Blocks Repo` is ready to use
 
-<img src="documentation/images/blocksRepo.png"/>
+<img src="documentation/images/blocksRepo.png" width="900px"/>
 
 * Create a `Level Builder` by clicking 'GameObject/AutoLevel/Builder'
 * Assign the `Blocks Repo` to the builder
-* Use the selection handle to set block groups over the level. The level inspector provides a toggle to switch between controlling the level or selection bounds. Bounds can be controlled via inspector or by using scene handles. toggle between the different handles using w,r,t
+* Use the selection handle to set block groups over the level. The level inspector provides a toggle to switch between controlling the level or selection bounds. Bounds can be controlled via inspector or by using scene handles. Toggle between the different handles using w,r,t
 * Hit the rebuild button
-* Hit export to export the result to fbx file
+* Hit `Export Mesh` to export the result to fbx file
 
-<img src="documentation/images/levelBuilder.png"/>
+Keep in mind that the Building performance depends on two factors the size of the builder and the number of blocks produced by the repo. You can get better performance by only building where needed using multiple builders. Also, using constraints can reduce the building time significantly.
+
+<img src="documentation/images/levelBuilder.png" width="900px"/>
 
 ### Runtime Example
 
@@ -93,18 +98,13 @@ public class RuntimeExample : MonoBehaviour
 
 When selecting a `Block Asset,` there is an option called filling in the scene view context menu dropdown. This will show handles to edit the block filling, red for empty and green for fill, similar to the marching cubes algorithm.
 
-The filling comes into play in two parts. First, the connections will only be made to blocks with similar side patterns. Second, `Level Builder` can use that information to define the level rooms. The builder contains two built-in groups, the 'Empty' and 'Solid' groups, and you can use them to define the rooms and walls.
+The filling has two roles. First, the connections will only be made to blocks with similar side patterns. Second, `Level Builder` can use that information to define the level rooms. The builder contains two built-in groups, the 'Empty' and 'Solid' groups, and you can use them to define the rooms and walls.
 
 ## PERFORMACE
 
-* Regarding the memory, reducing the memory usage can be done by switching to dictionary instead of arrays. This also helped with performance. The old implementation processing time goes exponentially with the number of tiles. Now it's linear.
-* There is a considerable cost when using tile group. This cost has been reduced significantly by creating a lookup table for group interaction.
-* Using the `Level Builder` for a huge level is limited. That's because of the serialization cost to support `Undo` and saving changes to disk, next update there will be an option to ignore serialization.
+* Regarding memory, reducing memory usage can be done by switching to a dictionary instead of arrays. This also helped with performance.
+* There is a considerable cost when using a block group. This cost has been reduced significantly by creating a lookup table for group interaction.
 
 ## WHAT NEXT
-* Fine tile connection control
-* Big tile support
+* Fine Block connection control
 * Multithredead solving
-* Fast editing mode
-* Export for the tiles GameObject
-* More constrain

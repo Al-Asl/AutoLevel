@@ -1,4 +1,4 @@
-Shader "Hidden/LevelBuilder/CubeButton"
+Shader "Hidden/AutoLevel/CubeButton"
 {
     Properties
     {

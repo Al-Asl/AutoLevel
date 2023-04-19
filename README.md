@@ -43,6 +43,9 @@ Keep in mind that the Building performance depends on two factors the size of th
 ### Runtime Example
 
 ```csharp
+using UnityEngine;
+using AutoLevel;
+
 public class RuntimeExample : MonoBehaviour
 {
     [SerializeField]
@@ -50,39 +53,44 @@ public class RuntimeExample : MonoBehaviour
     [SerializeField]
     public BoundsInt bounds;
 
-    private LevelData levelData;
+    private BlocksRepo.Runtime runtimeRepo;
     private LevelMeshBuilder meshBuilder;
+    private LevelData levelData;
     private LevelSolver solver;
 
     private void OnEnable()
     {
         //generate blocks connections, variants and other configuration
-        repo.Generate();
+        BlocksRepo.Runtime runtimeRepo = repo.CreateRuntime();
 
         //a container for the solver result
         levelData = new LevelData(bounds);
-        meshBuilder = new LevelMeshBuilder(levelData,repo);
+        meshBuilder = new LevelMeshBuilder(levelData, runtimeRepo);
 
         solver = new LevelSolver(bounds.size);
-        solver.repo = repo;
-        solver.levelData = levelData;
+        solver.SetRepo(runtimeRepo);
+        solver.SetlevelData(levelData);
+
+        //set the bottom boundary
+        solver.SetBoundary(
+            new GroupsBoundary(runtimeRepo.GetGroupIndex(BlocksRepo.SOLID_GROUP)), Direction.Down);
     }
 
     private void OnDisable()
     {
-        repo.Clear();
+        runtimeRepo.Dispose();
         meshBuilder.Dispose();
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.R))
-            Rebuild();
+            Rebuild(bounds);
     }
 
-    void Rebuild()
+    void Rebuild(BoundsInt bounds)
     {
-        //solve the level, this will return the number of iteration it took,
+        //run the solver, this will return the number of iteration it took,
         //0 means the solver has failed
         var iterations = solver.Solve(bounds);
         if (iterations > 0)

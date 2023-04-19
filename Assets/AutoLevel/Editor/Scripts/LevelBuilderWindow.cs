@@ -1,13 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using System.Threading.Tasks;
 using System.IO;
 
 namespace AutoLevel
 {
+
     public class LevelBuilderWindow : EditorWindow
     {
         [MenuItem("AutoLevel/Level Builder Window")]
@@ -18,10 +17,7 @@ namespace AutoLevel
 
         private LevelEditorSettingsEditor SettingsEditor;
 
-        private List<LevelBuilderEditor.SO> builders;
-        private Dictionary<BlocksRepo,BlocksRepo.Runtime> repos;
-
-        private List<HashSet<LevelBuilderEditor.SO>> builderGroups;
+        private LevelGroupManager<LevelBuilderEditor.SO> groupManager;
         private List<LevelDataDrawer> levelDataDrawers = new List<LevelDataDrawer>();
         private List<InputWaveDrawer> inputWaveDrawers = new List<InputWaveDrawer>();
 
@@ -40,37 +36,16 @@ namespace AutoLevel
             var settings = LevelEditorSettings.GetSettings();
             SettingsEditor = (LevelEditorSettingsEditor)Editor.CreateEditor(settings, typeof(LevelEditorSettingsEditor));
 
-            var allBuilders = FindObjectsOfType<LevelBuilder>();
-            List<LevelBuilder> validBuilders = new List<LevelBuilder>();
-            repos = new Dictionary<BlocksRepo, BlocksRepo.Runtime>();
+            groupManager = new LevelGroupManager<LevelBuilderEditor.SO>((builder) => new LevelBuilderEditor.SO(builder));
 
-            foreach(var builder in allBuilders)
+            builderToggles = new bool[groupManager.GroupCount][];
+            for (int i = 0; i < groupManager.GroupCount; i++)
             {
-                var data = builder.data;
-
-                if (data.BlockRepo == null)
-                    continue;
-
-                validBuilders.Add(builder);
-
-                if (!repos.ContainsKey(data.BlockRepo))
-                    repos.Add(data.BlockRepo, data.BlockRepo.CreateRuntime());
-            }
-
-            builders = new List<LevelBuilderEditor.SO>();
-            foreach (var builder in validBuilders)
-                builders.Add(new LevelBuilderEditor.SO(builder));
-
-            builderGroups = LevelBuilderUtlity.GroupBuilders(builders);
-
-            builderToggles = new bool[builderGroups.Count][];
-            for (int i = 0; i < builderGroups.Count; i++)
-            {
-                builderToggles[i] = new bool[builderGroups[i].Count];
+                builderToggles[i] = new bool[groupManager.GetBuilderGroup(i).Count()];
                 builderToggles[i].Fill(() => true);
             }
 
-            if (builderGroups.Count > 0)
+            if (groupManager.GroupCount > 0)
             {
                 SetSelectedGroup(0);
             }
@@ -97,12 +72,10 @@ namespace AutoLevel
 
             ClearDrawers();
 
-            foreach(var gorup in builderGroups)
-                foreach(var builder in gorup)
+            groupManager.Dispose();
+            for (int i = 0; i < groupManager.GroupCount; i++)
+                foreach (var builder in groupManager.GetBuilderGroup(i))
                     builder.Dispose();
-
-            foreach (var repo in repos)
-                repo.Value.Dispose();
         }
 
         private void OnGUI()
@@ -119,14 +92,14 @@ namespace AutoLevel
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
-            for (int i = 0; i < builderGroups.Count; i++)
+            for (int i = 0; i < groupManager.GroupCount; i++)
             {
-                var builderGroup = builderGroups[i];
+                var builderGroup = groupManager.GetBuilderGroup(i);
 
                 GUILayout.BeginHorizontal();
 
                 bool foldout = EditorGUILayout.BeginFoldoutHeaderGroup(selectedGroup == i,
-                    $"{builderGroup.First().target.name} and {builderGroup.Count - 1} others");
+                    $"{builderGroup.First().Builder.name} and {builderGroup.Last().Builder.name} others");
 
                 if(foldout)
                     SetSelectedGroup(i);
@@ -166,9 +139,7 @@ namespace AutoLevel
 
             if(GUILayout.Button("Clear"))
             {
-                var group = builderGroups[selectedGroup];
-                foreach(var builder in group)
-                    LevelBuilderUtlity.ClearBuild(builder);
+                groupManager.ClearGroup(selectedGroup);
                 ReDraw();
             }
 
@@ -176,7 +147,7 @@ namespace AutoLevel
 
             if(GUILayout.Button("Save"))
             {
-                var group = builderGroups[selectedGroup];
+                var group = groupManager.GetBuilderGroup(selectedGroup);
                 foreach (var builder in group)
                     builder.ApplyLevelData();
             }
@@ -199,18 +170,7 @@ namespace AutoLevel
 
         private void Rebuild()
         {
-            var builders = new List<ILevelBuilderData>();
-            var toggles = builderToggles[selectedGroup];
-            int i = 0;
-            foreach (var builder in builderGroups[selectedGroup])
-            {
-                if (toggles[i++])
-                    builders.Add(builder);
-            }
-
-            bool result = LevelBuilderUtlity.RebuildLevelGroup(
-                builderGroups[selectedGroup], builders,
-                (builder) => repos[builder.data.BlockRepo]);
+            bool result = groupManager.Rebuild(selectedGroup, builderToggles[selectedGroup]);
             ReDraw();
 
             if (result)
@@ -221,7 +181,7 @@ namespace AutoLevel
 
         private void ExportMeshes()
         {
-            var builders = builderGroups[selectedGroup];
+            var builders = groupManager.GetBuilderGroup(selectedGroup);
 
             var path = EditorUtility.OpenFolderPanel("Mesh Export", Application.dataPath, "");
             if (string.IsNullOrEmpty(path))
@@ -239,7 +199,7 @@ namespace AutoLevel
 
         private void ExportObjects()
         {
-            var builders = builderGroups[selectedGroup];
+            var builders = groupManager.GetBuilderGroup(selectedGroup);
 
             var path = EditorUtility.OpenFolderPanel("Objects Export", Application.dataPath, "");
             if (string.IsNullOrEmpty(path))
@@ -268,12 +228,12 @@ namespace AutoLevel
         {
             ClearDrawers();
 
-            var buildersGroup = builderGroups[selectedGroup];
+            var buildersGroup = groupManager.GetBuilderGroup(selectedGroup);
 
             foreach (var builder in buildersGroup)
             {
-                levelDataDrawers.Add(new LevelDataDrawer(repos[builder.BlockRepo], builder));
-                inputWaveDrawers.Add(new InputWaveDrawer(repos[builder.BlockRepo], builder));
+                levelDataDrawers.Add(new LevelDataDrawer(groupManager.GetRepo(builder), builder));
+                inputWaveDrawers.Add(new InputWaveDrawer(groupManager.GetRepo(builder), builder));
             }
         }
 

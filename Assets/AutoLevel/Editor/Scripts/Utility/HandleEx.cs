@@ -49,12 +49,12 @@ namespace AutoLevel
 
         static HandleEx()
         {
-            quadMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Quad);
-            sphereMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Sphere);
-            cylinderMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Cylinder);
-            capsuleMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Capsule);
-            cubeMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Cube);
-            planeMesh = EditorHelper.GetPrimitiveMesh(PrimitiveType.Plane);
+            quadMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Quad);
+            sphereMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Sphere);
+            cylinderMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Cylinder);
+            capsuleMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Capsule);
+            cubeMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Cube);
+            planeMesh = GameObjectUtil.GetPrimitiveMesh(PrimitiveType.Plane);
 
             uiMaterial = SetMaterialPreset(MaterialPreset.UI, new Material(Shader.Find("Hidden/Handle/Standard")));
             opaqueMaterial = SetMaterialPreset(MaterialPreset.Opaque, new Material(uiMaterial));

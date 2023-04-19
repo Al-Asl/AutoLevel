@@ -9,6 +9,8 @@ namespace AutoLevel
     {
         private const string DEBUG = "AUTOLEVEL_DEBUG";
 
+        private static readonly object timers_lock = new object();
+
         private static Dictionary<int, Stopwatch> timers
             = new Dictionary<int, Stopwatch>();
 
@@ -19,7 +21,10 @@ namespace AutoLevel
         {
             var watch = Stopwatch.StartNew();
             if (paused) watch.Stop();
-            timers[hash] = watch;
+            lock(timers_lock)
+            {
+                timers[hash] = watch;
+            }
         }
 
         [Conditional(DEBUG)]
@@ -51,7 +56,10 @@ namespace AutoLevel
         [Conditional(DEBUG)]
         public static void RemoveTimer(int hash)
         {
-            timers.Remove(hash);
+            lock (timers_lock)
+            {
+                timers.Remove(hash);
+            }
         }
 
         [Conditional(DEBUG)]

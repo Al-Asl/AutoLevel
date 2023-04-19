@@ -266,7 +266,7 @@ namespace AutoLevel
                 return 0;
 
             if (!mesh.isReadable)
-                Debug.Log("making the mesh readable help with filling setup");
+                Debug.LogWarning("make the mesh readable, if you are generating in runtime");
 
             int fill = 0;
             var verts = new List<Vector3>();
@@ -373,14 +373,11 @@ namespace AutoLevel
             var material = BlockUtility.GetMaterial(block.gameObject);
             var mesh = block.baseMesh;
 
-            if (material != null)
-            {
-                var mainTex = material.GetTexture("_MainTex");
-                handleRes.VariantMat.SetTexture("_MainTex", mainTex);
-            }
-
             var cmd = GetDrawCmd().SetMesh(mesh).SetMaterial(handleRes.VariantMat);
             int revert = 0; int flips = 0;
+
+            if (material != null)
+                cmd.SetTexture(material.GetTexture("_MainTex"));
 
             for (int k = 0; k < block.actions.Count; k++)
             {
@@ -601,7 +598,7 @@ namespace AutoLevel
         }
         protected void DrawConnection(Connection con)
         {
-            if (con.a == con.b)
+            if ((AssetBlock)con.a == (AssetBlock)con.b)
             {
                 if (settings.DrawSelfConnections)
                     Draw(con, Color.cyan);

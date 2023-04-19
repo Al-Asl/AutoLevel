@@ -360,7 +360,7 @@ namespace AutoLevel
                     if (BlockSideButton(sideitem.Item1, sideitem.Item2, 0.9f))
                     {
                         SceneView.lastActiveSceneView.ShowNotification(
-                        new GUIContent("Use Shift key to select specif face, and use right click to cancel"), 1f);
+                        new GUIContent("Use Shift key to select specific face, and use right click to cancel"), 1f);
                         connecting = true;
                         connectingDir = sideitem.Item1.d;
                     }

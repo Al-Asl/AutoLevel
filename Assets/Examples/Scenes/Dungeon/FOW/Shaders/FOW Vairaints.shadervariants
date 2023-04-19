@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!200 &20000000
+ShaderVariantCollection:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: FOW Vairaints
+  m_Shaders:
+  - first: {fileID: 4800000, guid: 022f5ef9c92b28345b274f7afb38f691, type: 3}
+    second:
+      variants: []
+  - first: {fileID: 4800000, guid: 5d3ef84b5a105a042822c556677d2834, type: 3}
+    second:
+      variants: []

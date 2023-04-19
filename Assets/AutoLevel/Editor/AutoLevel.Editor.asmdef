@@ -1,0 +1,19 @@
+{
+    "name": "AutoLevel",
+    "rootNamespace": "",
+    "references": [
+        "GUID:0f9e8f73c69964f1e8176f9a0b86f9b2",
+        "GUID:30eb201249f211742acf1acf5a077382"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

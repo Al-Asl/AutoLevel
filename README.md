@@ -1,6 +1,6 @@
 # Auto-Level
 
-<img src="documentation/images/autolevel.gif" width="900px"/>
+<img src="documentation/images/autolevel.gif"/>
 
 Free procural level generator based on WFC algorithm for unity.
 
@@ -25,7 +25,7 @@ Complete C# source code is provided.
 * Add the `Block Asset` component to the tiles
 * Select a tile and start making connections in the scene view. Remember to change the editing mode to connection. After the connections are made, the `Blocks Repo` is ready to use
 
-<img src="documentation/images/blocksRepo.png" width="900px"/>
+<img src="documentation/images/blocksRepo.png"/>
 
 * Create a `Level Builder` by clicking 'GameObject/AutoLevel/Builder'
 * Assign the `Blocks Repo` to the builder
@@ -33,7 +33,7 @@ Complete C# source code is provided.
 * Hit the rebuild button
 * Hit export to export the result to fbx file
 
-<img src="documentation/images/levelBuilder.png" width="900px"/>
+<img src="documentation/images/levelBuilder.png"/>
 
 ### Runtime Example
 

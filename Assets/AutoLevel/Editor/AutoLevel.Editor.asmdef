@@ -1,7 +1,9 @@
 {
-    "name": "AutoLevel",
+    "name": "AutoLevel.Editor",
     "rootNamespace": "",
     "references": [
+        "GUID:f1f735c9043cc4d4fb4a32e77deeb8d1",
+        "GUID:7f22184015f381a4f834e426b3f69927",
         "GUID:0f9e8f73c69964f1e8176f9a0b86f9b2",
         "GUID:30eb201249f211742acf1acf5a077382"
     ],

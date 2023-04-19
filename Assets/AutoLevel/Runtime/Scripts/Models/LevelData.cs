@@ -1,10 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
-
+    /// <summary>
+    /// the data structure used by the level solver to write it's result
+    /// </summary>
     [System.Serializable]
     public class LevelData
     {

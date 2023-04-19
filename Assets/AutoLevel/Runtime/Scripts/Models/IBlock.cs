@@ -27,6 +27,9 @@ namespace AutoLevel
         StandalnoeBlock CreateCopy();
     }
 
+    /// <summary>
+    /// represent block by referencing it's variant
+    /// </summary>
     [System.Serializable]
     public struct AssetBlock : IBlock
     {
@@ -106,6 +109,9 @@ namespace AutoLevel
         }
     }
 
+    /// <summary>
+    /// represent a stand alone block, a connection to block asset is optional
+    /// </summary>
     public struct StandalnoeBlock : IBlock
     {
         private BigBlockAsset m_bigBlock;

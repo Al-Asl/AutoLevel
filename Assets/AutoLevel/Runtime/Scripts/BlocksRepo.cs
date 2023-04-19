@@ -12,20 +12,21 @@ namespace AutoLevel
         public Material material;
     }
 
-    [System.Serializable]
-    public class ActionsGroup
-    {
-        public string name;
-
-        [System.Serializable]
-        public class GroupActions { public List<BlockAction> actions = new List<BlockAction>(); }
-
-        public List<GroupActions> groupActions = new List<GroupActions>();
-    }
 
     [AddComponentMenu("AutoLevel/Blocks Repo")]
     public partial class BlocksRepo : MonoBehaviour
     {
+        [System.Serializable]
+        public class ActionsGroup
+        {
+            public string name;
+
+            [System.Serializable]
+            public class GroupActions { public List<BlockAction> actions = new List<BlockAction>(); }
+
+            public List<GroupActions> groupActions = new List<GroupActions>();
+        }
+
         [SerializeField]
         private List<string> groups = new List<string>();
         [SerializeField]

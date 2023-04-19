@@ -1,36 +1,17 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 {
-    [System.Serializable]
-    public class GroupSettings
-    {
-        public int hash;
-        public bool overridWeight;
-        public float Weight;
-    }
 
-    [System.Serializable]
-    public class GroupBoundaryEntry
-    {
-        public List<int> groups = new List<int>();
-    }
-
-    [System.Serializable]
-    public class BoundarySettings
-    {
-        public GroupBoundaryEntry[] groupsBoundary = new GroupBoundaryEntry[6];
-        public LevelBuilder[] levelBoundary = new LevelBuilder[6];
-    }
 
     public interface ILevelBuilderData
     {
         LevelBuilder Builder { get; }
         BlocksRepo BlockRepo { get; }
-        List<GroupSettings> GroupsWeights { get; }
-        BoundarySettings BoundarySettings { get; }
+        List<LevelBuilder.GroupSettings> GroupsWeights { get; }
+        LevelBuilder.BoundarySettings BoundarySettings { get; }
         LevelData LevelData { get; }
         Array3D<InputWaveCell> InputWave { get; }
     }
@@ -38,6 +19,27 @@ namespace AutoLevel
     [AddComponentMenu("AutoLevel/Level Builder")]
     public class LevelBuilder : MonoBehaviour
     {
+        [System.Serializable]
+        public class GroupSettings
+        {
+            public int hash;
+            public bool overridWeight;
+            public float Weight;
+        }
+
+        [System.Serializable]
+        public class GroupBoundaryEntry
+        {
+            public List<int> groups = new List<int>();
+        }
+
+        [System.Serializable]
+        public class BoundarySettings
+        {
+            public GroupBoundaryEntry[] groupsBoundary = new GroupBoundaryEntry[6];
+            public LevelBuilder[] levelBoundary = new LevelBuilder[6];
+        }
+
         public struct Data : ILevelBuilderData
         {
             public Data(LevelBuilder builder)

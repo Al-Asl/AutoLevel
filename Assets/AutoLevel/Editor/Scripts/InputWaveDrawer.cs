@@ -1,7 +1,7 @@
-﻿using AutoLevel;
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using AlaslTools;
 
 namespace AutoLevel
 { 
@@ -60,14 +60,14 @@ namespace AutoLevel
                     else if (gi == 1)
                         col = solidGroupsClr;
                     else
-                        col = ColorUtility.GetColor(repo.GetGroupHash(gi));
+                        col = AlaslTools.ColorUtility.GetColor(repo.GetGroupHash(gi));
                 }
                 else
                 {
                     var h = new XXHash();
                     foreach (var gi in iWave.GroupsEnum(repo.GroupsCount))
                         h = h.Append(repo.GetGroupHash(gi));
-                    col = ColorUtility.GetColor(h);
+                    col = AlaslTools.ColorUtility.GetColor(h);
                 }
 
                 texture.SetPixel(i.x, i.y, i.z, col);

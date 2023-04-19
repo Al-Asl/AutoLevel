@@ -1,4 +1,6 @@
-﻿namespace AutoLevel
+﻿using AlaslTools;
+
+namespace AutoLevel
 {
 
     [System.Serializable]

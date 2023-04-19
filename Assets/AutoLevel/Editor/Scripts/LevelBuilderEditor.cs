@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using Object = UnityEngine.Object;
+using AlaslTools;
 
 namespace AutoLevel
 {
@@ -19,17 +20,17 @@ namespace AutoLevel
 
             public BlocksRepo BlockRepo => blockRepo;
 
-            public List<GroupSettings> GroupsWeights => groupsWeights;
-            public BoundarySettings BoundarySettings => boundarySettings;
+            public List<LevelBuilder.GroupSettings> GroupsWeights => groupsWeights;
+            public LevelBuilder.BoundarySettings BoundarySettings => boundarySettings;
 
             public LevelData LevelData => levelData;
             public Array3D<InputWaveCell> InputWave => inputWave;
 
             public BlocksRepo blockRepo;
 
-            public List<GroupSettings> groupsWeights;
+            public List<LevelBuilder.GroupSettings> groupsWeights;
 
-            public BoundarySettings boundarySettings;
+            public LevelBuilder.BoundarySettings boundarySettings;
 
             public bool useMutliThreadedSolver;
 
@@ -155,7 +156,7 @@ namespace AutoLevel
 
         private SO builder;
         private BlocksRepo.Runtime repo;
-        List<GroupSettings> groupsSettings                  => builder.groupsWeights;
+        List<LevelBuilder.GroupSettings> groupsSettings     => builder.groupsWeights;
         private Array3D<int> levelBlocks                    => builder.levelData.Blocks;
         private Array3D<InputWaveCell> inputWave            => builder.inputWave;
         private BoundsInt selection { get => builder.selection; set => builder.SetSelection(value); }
@@ -198,7 +199,6 @@ namespace AutoLevel
         private HandleResources handleRes;
 
         private Tool current;
-        private int tool = 0;
         private BoxBoundsHandle handle = new BoxBoundsHandle();
 
         private HashedFlagList[] groupsLists;
@@ -229,7 +229,7 @@ namespace AutoLevel
             boundaryRepos = new BlocksRepo.Runtime[6];
             boundariesLevelDrawer = new LevelDataDrawer[6];
 
-            var basePath = System.IO.Path.Combine( EditorHelper.GetScriptDirectory<LevelBuilderEditor>() , "Resources");
+            var basePath = System.IO.Path.Combine( EditorHelper.GetAssemblyDirectory<LevelBuilderEditor>() , "Scripts" ,"Resources");
             connectingIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
                 System.IO.Path.Combine(basePath, "LevelBuilderConnecting.png"));
             removeConnectionIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
@@ -299,11 +299,17 @@ namespace AutoLevel
 
             EditorGUI.BeginChangeCheck();
 
-            tool = GUILayout.Toolbar(tool, new string[] { "Level", "Selection" , "Connecting" });
+            var tool = GUILayout.Toolbar(settings.Tool, new string[] { "Level", "Selection" , "Connecting" });
 
-            if (tool == 0)
+            if(tool != settings.Tool)
+            {
+                settings.Tool = tool;
+                SettingsEditor.Apply();
+            }
+
+            if (settings.Tool == 0)
                 levelBounds = DrawBoundsGUI(levelBounds);
-            else if (tool == 1)
+            else if (settings.Tool == 1)
                 selection = DrawBoundsGUI(selection);
 
             if (EditorGUI.EndChangeCheck())
@@ -321,13 +327,6 @@ namespace AutoLevel
 
             // execution //
 
-            if (GUILayout.Toggle(builder.useMutliThreadedSolver, "Use Multi Thread", GUI.skin.button) !=
-                builder.useMutliThreadedSolver)
-            {
-                builder.useMutliThreadedSolver = !builder.useMutliThreadedSolver;
-                builder.ApplyField(nameof(SO.useMutliThreadedSolver));
-            }
-
             if (GUILayout.Button("Clear"))
             {
                 LevelBuilderUtlity.ClearBuild(builder);
@@ -337,6 +336,13 @@ namespace AutoLevel
             }
 
             EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Toggle(builder.useMutliThreadedSolver, "MT", GUI.skin.button,GUILayout.Width(35)) !=
+                builder.useMutliThreadedSolver)
+            {
+                builder.useMutliThreadedSolver = !builder.useMutliThreadedSolver;
+                builder.ApplyField(nameof(SO.useMutliThreadedSolver));
+            }
 
             if (GUILayout.Button("Rebuild All"))
                 Rebuild(levelBounds);
@@ -374,15 +380,15 @@ namespace AutoLevel
 
             GetDrawCmd().
                 SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(handleRes.GridMat).
+                SetMaterial(GridMaterial).
                 Scale(selection.size).
                 Move(selection.center).Draw();
 
             HandleTools();
 
-            if (tool == 1)
+            if (settings.Tool == 1)
                 DoContextMenu();
-            else if (tool == 2)
+            else if (settings.Tool == 2)
                 DoConnectingControls();
         }
 
@@ -468,14 +474,14 @@ namespace AutoLevel
                         Debug.Log($"adjusting to change in the Repo groups {levelBuilder.gameObject.name}");
 
                     var map = new List<int>();
-                    var newSettings = new List<GroupSettings>();
+                    var newSettings = new List<LevelBuilder.GroupSettings>();
                     for (int i = 0; i < repo.WeightGroupsCount; i++)
                     {
                         var hash = repo.GetWeightGroupHash(i);
                         var oldIndex = so.groupsWeights.FindIndex((a) => a.hash == hash);
                         map.Add(oldIndex);
                         newSettings.Add(oldIndex != -1 ? so.groupsWeights[oldIndex] :
-                            new GroupSettings() { hash = hash, Weight = 1 });
+                            new LevelBuilder.GroupSettings() { hash = hash, Weight = 1 });
                     }
                     so.groupsWeights = newSettings;
 
@@ -705,19 +711,19 @@ namespace AutoLevel
             switch (current)
             {
                 case Tool.Move:
-                    if (tool == 0)
+                    if (settings.Tool == 0)
                         levelBounds = DoMoveBoundsHandle(levelBounds);
                     else
                         selection = DoMoveBoundsHandle(selection);
                     break;
                 case Tool.Scale:
-                    if (tool == 0)
+                    if (settings.Tool == 0)
                         levelBounds = DoScaleBoundsHandle(levelBounds);
                     else
                         selection = DoScaleBoundsHandle(selection);
                     break;
                 case Tool.Rect:
-                    if (tool == 0)
+                    if (settings.Tool == 0)
                         levelBounds = DoEditBoundsHandle(levelBounds);
                     else
                         selection = DoEditBoundsHandle(selection);
@@ -780,7 +786,7 @@ namespace AutoLevel
                         else
                             cmd.SetColor(color).Draw();
                     else if (eventType == EventType.Layout)
-                        HandleUtility.AddControl(controlID, default(CubeD).Distance(cmd));
+                        HandleUtility.AddControl(controlID, default(CubeD).Distance(cmd, controlID));
                 }
             };
             handle.DrawHandle();
@@ -911,13 +917,11 @@ namespace AutoLevel
         {
             var camera = SceneView.lastActiveSceneView.camera;
             var planes = GeometryUtility.CalculateFrustumPlanes(camera);
-            var blue = new Color(0.3f, 0.56f, 0.87f, 1f);
-            var red = new Color(0.725f, 0.196f, 0.196f, 1f);
 
             var cmd = GetDrawCmd().
                         SetPrimitiveMesh(PrimitiveType.Quad).
                         SetMaterial(MaterialType.UI).
-                        SetColor(blue).
+                        SetColor(NiceColors.PictonBlue).
                         SetTexture(connectingIcon).
                         Scale(2f);
 
@@ -934,15 +938,14 @@ namespace AutoLevel
                     if (builder.boundarySettings.levelBoundary[d] != null)
                     {
                         var btnCmd = cmd;
-                        btnCmd = btnCmd.
-                            SetTexture(removeConnectionIcon).
-                            SetColor(red).
-                            LookAt(-normal).
-                            Move(pos);
+                        btnCmd.SetTexture(removeConnectionIcon);
+                        btnCmd.SetColor(NiceColors.ImperialRed);
+                        btnCmd.LookAt(-normal);
+                        btnCmd.Move(pos);
 
                         Button.SetAll(btnCmd);
-                        Button.hover.SetColor(red * 0.7f);
-                        Button.active.SetColor(red * 0.9f);
+                        Button.hover.SetColor(NiceColors.ImperialRed * 0.7f);
+                        Button.active.SetColor(NiceColors.ImperialRed * 0.9f);
 
                         if (Button.Draw<QuadD>())
                         {
@@ -963,11 +966,12 @@ namespace AutoLevel
                     else
                     {
                         var btnCmd = cmd;
-                        btnCmd = btnCmd.LookAt(-normal).Move(pos);
+                        btnCmd.LookAt(-normal);
+                        btnCmd.Move(pos);
 
                         Button.SetAll(btnCmd);
-                        Button.hover.SetColor(blue * 0.7f);
-                        Button.active.SetColor(blue * 0.9f);
+                        Button.hover.SetColor(NiceColors.PictonBlue * 0.7f);
+                        Button.active.SetColor(NiceColors.PictonBlue * 0.9f);
 
                         if (Button.Draw<QuadD>())
                         {
@@ -996,23 +1000,24 @@ namespace AutoLevel
                     Where((builder) => builder.gameObject.activeInHierarchy).
                     Where((builder) => builder != this.builder.target))
                 {
-                    var bounds = builder.data.LevelData.bounds;
-                    var d = Directions.opposite[connectingSide];
+                    var boundsInt = builder.data.LevelData.bounds;
+                    var bounds = new Bounds();
+                    bounds.size = boundsInt.size;
+                    bounds.center = boundsInt.position + bounds.size*0.5f;
 
-                    var bPos = GetSideCenter(bounds, d);
-                    var normal = Directions.directions[d];
-
-                    if (!AutoLevelEditorUtility.SideCullTest(camera, bPos, d))
+                    if (!GeometryUtility.TestPlanesAABB(planes, bounds))
                         continue;
 
-                    var btnCmd = cmd;
-                    btnCmd = btnCmd.LookAt(-normal).Move(bPos);
+                    var btnCmd = GetDrawCmd().
+                        SetPrimitiveMesh(PrimitiveType.Cube).
+                        Scale(bounds.size).
+                        Move(bounds.center).
+                        SetColor(NiceColors.Coral.SetAlpha(0.35f));
 
                     Button.SetAll(btnCmd);
-                    Button.hover.SetColor(blue * 0.7f);
-                    Button.active.SetColor(blue * 0.9f);
+                    Button.hover.SetColor(NiceColors.Orange.SetAlpha(0.4f));
 
-                    if (Button.Draw<QuadD>())
+                    if (Button.Draw<Cube3DD>())
                     {
                         Connect(builder, connectingSide);
                         connecting = false;

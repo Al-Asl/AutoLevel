@@ -16,4 +16,4 @@ MonoBehaviour:
     GroupsToggle: 0
     MaxIterations: 10
     ExportSize: 5
-    Tool: 2
+    Tool: 1

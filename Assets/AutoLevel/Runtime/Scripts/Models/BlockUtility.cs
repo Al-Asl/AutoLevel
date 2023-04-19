@@ -37,7 +37,12 @@ namespace AutoLevel
             return m;
         }
 
-        public static int GetSideCompositeId(IBlock block, int side) => new XXHash().Append(block.baseIds[side]).Append(FillUtility.GetSide(block.fill, side));
+        public static int GetSideCompositeId(IBlock block, int side)
+        {
+            return new XXHash().
+                Append(block.baseIds[side]).
+                Append(block.layerSettings.PartOfBaseLayer ? FillUtility.GetSide(block.fill, side) : 0);
+        }
 
         public static ConnectionsIds GetCompositeIds(IBlock block)
         {
@@ -47,17 +52,16 @@ namespace AutoLevel
             return ids;
         }
 
-        public static int GenerateHash(IBlock block, List<BlockAction> actions)
+        public static int GenerateHash(IBlock block)
         {
             var mesh = block.baseMesh;
-            if (mesh == null)
-                return new XXHash(1).
+
+            return new XXHash(1).
+                Append(mesh != null ? block.baseMesh.name.GetHashCode() : 0).
+                Append(block.hasGameObject ? block.gameObject.GetHashCode() : 0).
                 Append(block.compositeIds.GetHashCode()).
-                Append(ActionsUtility.GetActionsHash(actions));
-            else
-                return new XXHash(1).Append(block.baseMesh.name.GetHashCode()).
-                Append(block.compositeIds.GetHashCode()).
-                Append(ActionsUtility.GetActionsHash(actions));
+                Append(ActionsUtility.GetActionsHash(block.actions)).
+                Append(block.layerSettings.layer);
         }
     }
 

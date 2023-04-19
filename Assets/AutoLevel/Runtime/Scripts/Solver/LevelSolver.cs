@@ -24,7 +24,7 @@ namespace AutoLevel
         {
             foreach (var index in SolverVolume)
             {
-                levelData.Blocks[index + solveBounds.min] =
+                layer.Blocks[index + solveBounds.min] =
                     repo.GetBlockHash(wave[index.z, index.y, index.x].First().Key);
             }
         }
@@ -38,28 +38,25 @@ namespace AutoLevel
 
         protected override void Fill()
         {
-            if (inputWave == null)
+            if(layerIndex != 0)
             {
                 foreach (var index in SolverVolume)
-                    weights[index.z, index.y, index.x] = weightsSum;
+                {
+                    var blocks = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[index]));
+                    weights[index.z, index.y, index.x] = blocks.Sum((b) => blockWeights[b]);
+                }
+
+                int[][] counter = new int[6][];
+                for (int i = 0; i < 6; i++)
+                    counter[i] = new int[repo.BlocksCount];
 
                 foreach (var index in SolverVolume)
                 {
-                    var wc = wave[index.z, index.y, index.x];
-                    for (int b = 0; b < repo.BlocksCount; b++)
-                    {
-                        var conn = new int[6];
-                        for (int d = 0; d < 6; d++)
-                            conn[opposite[d]] = repo.Connections[d][b].Length;
-                        wc[b] = conn;
-                    }
-#if AUTOLEVEL_DEBUG
-                    if (wc.Count == 0)
-                        throw new BuildFailedException(SolveStage.Fill, index);
-#endif
+                    FillUpperCell(index, counter);
                 }
+
             }
-            else
+            else if (inputWave != null)
             {
                 foreach (var index in SolverVolume)
                 {
@@ -83,7 +80,30 @@ namespace AutoLevel
 #endif
                 }
             }
+            else
+            {
+                foreach (var index in SolverVolume)
+                    weights[index.z, index.y, index.x] = weightsSum;
+
+                foreach (var index in SolverVolume)
+                {
+                    var wc = wave[index.z, index.y, index.x];
+                    for (int b = 0; b < repo.BlocksCount; b++)
+                    {
+                        var conn = new int[6];
+                        for (int d = 0; d < 6; d++)
+                            conn[opposite[d]] = repo.Connections[d][b].Length;
+                        wc[b] = conn;
+                    }
+#if AUTOLEVEL_DEBUG
+            if (wc.Count == 0)
+                throw new BuildFailedException(SolveStage.Fill, index);
+#endif
+                }
+            }
+
         }
+
         private void FillCell(Vector3Int index, int[][] counter)
         {
             var li = index + solveBounds.min;
@@ -113,7 +133,7 @@ namespace AutoLevel
                 if (!iwc[group])
                     continue;
 
-                var range = repo.GetGroupRange(group);
+                var range = repo.GetGroupRange(group, layerIndex);
 
                 for (int b = range.x; b < range.y; b++)
                 {
@@ -135,6 +155,52 @@ namespace AutoLevel
                     else
                         wc[b] = c;
                 }
+            }
+        }
+
+        private void FillUpperCell(Vector3Int index, int[][] counter)
+        {
+            var li = index + solveBounds.min;
+            var wc = wave[index.z, index.y, index.x];
+            var iwc = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[li]));
+
+            for (int d = 0; d < 6; d++)
+            {
+                var ni = index + delta[d];
+
+                if (OnBoundary(ni))
+                {
+                    counter[d].Fill(() => 1);
+                    continue;
+                }
+
+                counter[d].Fill(() => 0);
+
+                var nli = li + delta[d];
+                var niwc = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[nli]));
+
+                CountConnections(iwc, niwc, d, counter[d]);
+            }
+
+            foreach(var b in iwc)
+            {
+                var c = new int[6];
+                bool ban = false;
+                for (int d = 0; d < 6; d++)
+                {
+                    var count = counter[d][b];
+                    if (count == 0)
+                    {
+                        ban = true;
+                        break;
+                    }
+                    c[opposite[d]] = count;
+                }
+
+                if (ban)
+                    Ban(new Possibility(index, b));
+                else
+                    wc[b] = c;
             }
         }
 

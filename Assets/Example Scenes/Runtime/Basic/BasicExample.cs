@@ -42,18 +42,16 @@ namespace AutoLevel.Examples
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.R))
-                Rebuild(bounds);
+                Rebuild();
         }
 
-        void Rebuild(BoundsInt bounds)
+        void Rebuild()
         {
-            //run the solver, this will return the number of iteration it took,
-            //0 means the solver has failed
-            var iterations = solver.Solve(bounds);
-            if (iterations > 0)
+            //run the solver, return true on success
+            if (solver.SolveAll())
             {
                 //rebuild the mesh if the solver success
-                meshBuilder.Rebuild(bounds);
+                meshBuilder.RebuildAll();
             }
         }
     }

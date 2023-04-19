@@ -15,5 +15,5 @@ MonoBehaviour:
   settings:
     DrawSelfConnections: 1
     MaxConnectionsDrawCount: 25
-    EditMode: 0
+    EditMode: 3
     DrawVariants: 1

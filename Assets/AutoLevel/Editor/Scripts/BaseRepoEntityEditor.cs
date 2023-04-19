@@ -234,7 +234,7 @@ namespace AutoLevel
             if (repo == null)
                 return;
 
-            var blocks = GetBlocksIt(AssetType.BlockAsset | AssetType.BigBlockAssetAll);
+            var blocks = GetBlocksIt(AssetType.AllBlockAssetAndBigBlockAsset);
 
             //sort by the closest
             var targetPos = ((MonoBehaviour)target).transform.position;
@@ -288,7 +288,7 @@ namespace AutoLevel
                     for (int i = 0; i < oList.Count; i++)
                     {
                         var block = oList[i];
-                        if (block.blockAsset != null && 
+                        if (block.hasGameObject && 
                             block.VariantIndex < block.blockAsset.variants.Count)
                                 nList.Add(block);
                     }
@@ -363,7 +363,7 @@ namespace AutoLevel
 
                 for (int j = 0; j < rays.Length; j++)
                 {
-                    if (rays[j].RayTriangleIntersect(v0, v1, v2,
+                    if (rays[j].TriangleIntersection(v0, v1, v2,
                         ref t, ref bary, ref normal))
                     {
                         rayHit[j] = true;
@@ -461,14 +461,14 @@ namespace AutoLevel
                 SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
             }
         }
-        protected void DoBlocksSelectionButtons(IEnumerable<MonoBehaviour> targets)
+        protected void DoBlocksSelectionButtons(IEnumerable<MonoBehaviour> targets,int layer = 0)
         {
             foreach (var target in targets)
             {
                 if (target is BlockAsset)
                 {
                     foreach (var blockItem in AssetBlocksIt((BlockAsset)target))
-                        if (BlockButton(blockItem.Item1, blockItem.Item2))
+                        if (blockItem.Item1.layerSettings.layer >= layer && BlockButton(blockItem.Item1, blockItem.Item2))
                         {
                             Selection.activeGameObject = blockItem.Item1.gameObject;
                             initializeCommand.Set(blockItem.Item1.VariantIndex.ToString());
@@ -501,47 +501,54 @@ namespace AutoLevel
             }
         }
 
-        protected enum AssetType { BlockAsset = 1 , BigBlockAssetFirst = 2 , BigBlockAssetAll = 4}
+        protected enum AssetType { BlockAssetFirst, BlockAsset , BigBlockAssetFirst  , AllBlockAssetAndBigBlockAsset}
         protected IEnumerable<(AssetBlock, Vector3)> GetBlocksIt(AssetType assetType, bool includeInActive = false)
         {
             var assets = includeInActive ? allRepoEntities : activeRepoEntities;
             foreach(var asset in assets)
             {
                 var bigBlock = asset is BigBlockAsset;
-                if ((int)assetType > 1)
+
+                switch (assetType)
                 {
-                    if (assetType.HasFlag(AssetType.BigBlockAssetFirst))
-                    {
-                        if(bigBlock)
+                    case AssetType.BlockAssetFirst:
+                        if (!bigBlock)
+                        {
+                            var blockAsset = (BlockAsset)asset;
+                            if (blockAsset.variants.Count > 0)
+                            {
+                                var block = new AssetBlock(0, blockAsset);
+                                yield return (block, GetPositionFromBlockAsset(block));
+                            }
+                        }
+                        break;
+                    case AssetType.BlockAsset:
+                        if (!bigBlock)
+                        {
+                            foreach (var block in AssetBlocksIt((BlockAsset)asset))
+                                yield return block;
+                        }
+                        break;
+                    case AssetType.BigBlockAssetFirst:
+                        if (bigBlock)
                         {
                             foreach (var block in AssetBlocksFirstIt((BigBlockAsset)asset))
                                 yield return block;
                         }
-                        else if (assetType.HasFlag(AssetType.BlockAsset))
-                        {
-                                foreach (var block in AssetBlocksIt((BlockAsset)asset))
-                                    if (GetIndexInBigBlock(block.Item1).Item2 > 0)
-                                        yield return block;
-                        }
-                    }
-                    else
-                    {
+                        break;
+                    case AssetType.AllBlockAssetAndBigBlockAsset:
                         if (bigBlock)
                         {
                             foreach (var block in AssetBlocksAllIt((BigBlockAsset)asset))
                                 yield return block;
-                        }else if (assetType.HasFlag(AssetType.BlockAsset))
+                        }
+                        else if (assetType.HasFlag(AssetType.BlockAsset))
                         {
                             foreach (var block in AssetBlocksIt((BlockAsset)asset))
                                 if (block.Item1.bigBlock == null)
                                     yield return block;
                         }
-                    }
-                }
-                else if (!bigBlock && assetType == AssetType.BlockAsset)
-                {
-                    foreach (var block in AssetBlocksIt((BlockAsset)asset))
-                        yield return block;
+                        break;
                 }
             }
         }
@@ -701,31 +708,39 @@ namespace AutoLevel
 
         protected void DrawBlockToBigBlockConnection(AssetBlock block)
         {
+            DrawBlockOutlineConnection(
+                GetPositionFromBigBlockAsset(block),
+                GetPositionFromBlockAsset(block),
+                NiceColors.Saffron);
+        }
+
+        protected void DrawBlockOutlineConnection(Vector3 a, Vector3 b, Color color)
+        {
+            b += Vector3.one * 0.5f;
+            a += Vector3.one * 0.5f;
+
             //Draw the line
 
             {
-                Handles.color = NiceColors.Saffron;
+                Handles.color = color;
                 Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
-                Handles.DrawLine(GetPositionFromBlockAsset(block) + Vector3.one * 0.5f,
-                                GetPositionFromBigBlockAsset(block) + Vector3.one * 0.5f, 3);
+                Handles.DrawLine(a, b, 3);
                 Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
             }
 
             //Draw the outline
 
             {
-                var pos = GetPositionFromBlockAsset(block) + Vector3.one * 0.5f;
+                GetDrawCmd().
+                    SetPrimitiveMesh(PrimitiveType.Cube).
+                    SetMaterial(OutLineMaterial).
+                    Scale(0.95f).Move(b).Draw();
 
                 GetDrawCmd().
                     SetPrimitiveMesh(PrimitiveType.Cube).
-                    SetMaterial(HandleEx.OutLineMaterial).
-                    Scale(0.95f).Move(pos).Draw();
-
-                GetDrawCmd().
-                    SetPrimitiveMesh(PrimitiveType.Cube).
-                    SetMaterial(HandleEx.OutLineMaterial).
-                    SetColor(NiceColors.Saffron).
-                    Move(pos).Draw(pass: 1);
+                    SetMaterial(OutLineMaterial).
+                    SetColor(color).
+                    Move(b).Draw(pass: 1);
             }
         }
 
@@ -805,7 +820,7 @@ namespace AutoLevel
 
                 if(!partOfBigBlock)
                 {
-                    if (targetBlock.blockAsset != null)
+                    if (targetBlock.hasGameObject)
                         foreach (var sideItem in BlockSidesIt(targetBlock, GetPositionFromBlockAsset(targetBlock)))
                         {
                             if (BlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
@@ -962,7 +977,7 @@ namespace AutoLevel
 
         protected void DetachFromBigBlock(AssetBlock block)
         {
-            if (block.blockAsset == null || block.bigBlock == null)
+            if (!block.hasGameObject || block.bigBlock == null)
                 return;
 
             using (var so = new BigBlockAssetEditor.SO(block.bigBlock))

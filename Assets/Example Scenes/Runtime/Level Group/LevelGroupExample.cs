@@ -28,10 +28,10 @@ namespace AutoLevel.Examples
             {
                 // solve all the level builder for the group with index 0, once the solver succeed
                 // we run the builders
-                if (groupManager.Solve(0))
+                if (groupManager.SolveAll(0))
                 {
                     foreach (var builder in builders)
-                        builder.Rebuild();
+                        builder.RebuildAll();
                 }
                 else
                     Debug.Log("build failed");

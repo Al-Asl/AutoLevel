@@ -5,7 +5,7 @@ using AlaslTools;
 
 namespace AutoLevel.Examples
 {
-    // build an infinite level on the z axis
+    // build an infinite level along the z axis
     public class InfiniteBuilderExample : MonoBehaviour
     {
         private class Tile
@@ -112,7 +112,7 @@ namespace AutoLevel.Examples
                 while (toBuild.Count > 0)
                 {
                     var tile = toBuild.Pop();
-                    tile.dataBuilder.Rebuild();
+                    tile.dataBuilder.RebuildAll();
                 }
             }
         }
@@ -150,7 +150,7 @@ namespace AutoLevel.Examples
             solver.SetInputWave(tile.wave);
             solver.SetBoundary(new LevelBoundary(preTile.leveData, null, null), Direction.Backward);
 
-            var itr = solver.Solve(new BoundsInt(Vector3Int.zero, size), maxIterations);
+            var itr = solver.Solve(new BoundsInt(Vector3Int.zero, size), iteration: maxIterations);
             if (itr > 0)
             {
                 lock (toBuildLock)

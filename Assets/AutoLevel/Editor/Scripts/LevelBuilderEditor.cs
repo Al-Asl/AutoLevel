@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using Object = UnityEngine.Object;
 using AlaslTools;
 
 namespace AutoLevel
@@ -12,153 +11,34 @@ namespace AutoLevel
     using static HandleEx;
 
     [CustomEditor(typeof(LevelBuilder))]
-    public class LevelBuilderEditor : Editor
+    public partial class LevelBuilderEditor : Editor
     {
-        public class SO : BaseSO<LevelBuilder> , ILevelBuilderData
-        {
-            public LevelBuilder Builder => target;
 
-            public BlocksRepo BlockRepo => blockRepo;
+        private LevelEditorSettingsEditor       SettingsEditor;
+        private LevelEditorSettings.Settings    settings => SettingsEditor.Settings;
 
-            public List<LevelBuilder.GroupSettings> GroupsWeights => groupsWeights;
-            public LevelBuilder.BoundarySettings BoundarySettings => boundarySettings;
 
-            public LevelData LevelData => levelData;
-            public Array3D<InputWaveCell> InputWave => inputWave;
+        private SO                      builder;
+        private BlocksRepo.Runtime[]    boundaryRepos;
+        private BlocksRepo.Runtime      repo;
+        private int                     currentLayer;
 
-            public BlocksRepo blockRepo;
+        private Tool                    current;
+        private BoxBoundsHandle         handle = new BoxBoundsHandle();
+        private HandleResources         handleRes;
 
-            public List<LevelBuilder.GroupSettings> groupsWeights;
+        private HashedFlagList[]        groupsLists;
 
-            public LevelBuilder.BoundarySettings boundarySettings;
+        private LevelDataDrawer[]       boundariesLevelDrawer;
+        private LevelDataDrawer         levelDataDrawer;
+        private InputWaveDrawer         inputWaveDrawer;
 
-            public bool useMutliThreadedSolver;
+        private string Message;
 
-            public BoundsInt selection;
-            [SOIgnore]
-            public LevelData levelData;
-            [SOIgnore]
-            public Array3D<InputWaveCell> inputWave;
+        private bool connecting;
+        private int connectingSide;
 
-            private SerializedProperty levelDataPositionProp;
-            private SerializedProperty levelDataArrayProp;
-            private SerializedProperty levelDataSizeProp;
-
-            private SerializedProperty inputWaveArrayProp;
-            private SerializedProperty inputWaveSizeProp;
-
-            public SO(Object target) : base(target)
-            {
-                
-            }
-
-            protected override void OnIntialize()
-            {
-                SerializedProperty levelDataProp = serializedObject.FindProperty(nameof(levelData));
-                levelDataPositionProp = levelDataProp.FindPropertyRelative("position");
-                var blocksProp = levelDataProp.FindPropertyRelative("blocks");
-                levelDataArrayProp = blocksProp.FindPropertyRelative("array");
-                levelDataSizeProp = blocksProp.FindPropertyRelative("size");
-
-                levelData = new LevelData(new BoundsInt(levelDataPositionProp.vector3IntValue, levelDataSizeProp.vector3IntValue));
-
-                SerializedProperty inputWaveProp = serializedObject.FindProperty(nameof(inputWave));
-                inputWaveArrayProp = inputWaveProp.FindPropertyRelative("array");
-                inputWaveSizeProp = inputWaveProp.FindPropertyRelative("size");
-
-                inputWave = new Array3D<InputWaveCell>(inputWaveSizeProp.vector3IntValue);
-            }
-
-            public void SetSelection(BoundsInt bounds)
-            {
-                bounds.position = Vector3Int.Min(levelData.bounds.max - Vector3Int.one, bounds.position);
-                bounds.size = Vector3Int.Max(Vector3Int.one, bounds.size);
-                bounds.ClampToBounds(levelData.bounds);
-
-                selection = bounds;
-                ApplyField(nameof(selection));
-            }
-
-            public void ApplyLevelData() => ApplyLevelData(new BoundsInt(Vector3Int.zero, levelData.Blocks.Size)); 
-            public void ApplyLevelData(BoundsInt bounds)
-            {
-                levelDataPositionProp.vector3IntValue = levelData.position;
-                Apply(levelDataArrayProp, levelDataSizeProp, levelData.Blocks, bounds,
-                    (prop, value) => { prop.intValue = value; });
-                serializedObject.ApplyModifiedProperties();
-            }
-
-            public void ApplyInputWave() => ApplyInputWave(new BoundsInt(Vector3Int.zero, inputWave.Size));
-            public void ApplyInputWave(BoundsInt bounds)
-            {
-                Apply(inputWaveArrayProp, inputWaveSizeProp, inputWave, bounds,
-                    (prop, value) => 
-                    {
-                        prop.FindPropertyRelative("groups").intValue = value.groups; 
-                    });
-                serializedObject.ApplyModifiedProperties();
-            }
-
-            protected override void OnUpdate()
-            {
-                levelData.position = levelDataPositionProp.vector3IntValue;
-                Update(levelDataArrayProp, levelDataSizeProp, levelData.Blocks,
-                    (prop) => prop.intValue);
-                Update(inputWaveArrayProp, inputWaveSizeProp, inputWave,
-                    (prop) =>
-                    {
-                        var iw = new InputWaveCell();
-                        iw.groups = prop.FindPropertyRelative("groups").intValue;
-                        return iw;
-                    });
-            }
-
-            protected override void OnApply()
-            {
-                ApplyLevelData();
-                ApplyInputWave();
-            }
-
-            private static void Update<T>(SerializedProperty arrayProp, SerializedProperty sizeProp,
-                Array3D<T> array, Func<SerializedProperty, T> getter)
-            {
-                if (array.Size != sizeProp.vector3IntValue)
-                {
-                    array = new Array3D<T>(sizeProp.vector3IntValue);
-                }
-                for (int i = 0; i < arrayProp.arraySize; i++)
-                {
-                    array[SpatialUtil.Index1DTo3D(i, array.Size)] = getter(arrayProp.GetArrayElementAtIndex(i));
-                }
-            }
-
-            private static void Apply<T>(SerializedProperty arrayProp, SerializedProperty sizeProp,
-                Array3D<T> array,BoundsInt bounds ,Action<SerializedProperty, T> setter)
-            {
-                if (array.Size != sizeProp.vector3IntValue)
-                {
-                    sizeProp.vector3IntValue = array.Size;
-                    arrayProp.arraySize = array.Size.x * array.Size.y * array.Size.z;
-                }
-                var sizex = array.Size.x;
-                var sizexy = array.Size.x * array.Size.y;
-                try
-                {
-                    foreach (var index in SpatialUtil.Enumerate(bounds))
-                        setter(arrayProp.GetArrayElementAtIndex(SpatialUtil.Index3DTo1D(index, sizex, sizexy)), array[index]);
-                }
-                catch
-                {
-
-                }
-            }
-        }
-
-        private SO builder;
-        private BlocksRepo.Runtime repo;
-        List<LevelBuilder.GroupSettings> groupsSettings     => builder.groupsWeights;
-        private Array3D<int> levelBlocks                    => builder.levelData.Blocks;
-        private Array3D<InputWaveCell> inputWave            => builder.inputWave;
+        private Array3D<InputWaveCell> inputWave => builder.inputWave;
         private BoundsInt selection { get => builder.selection; set => builder.SetSelection(value); }
         private BoundsInt levelBounds
         {
@@ -175,46 +55,22 @@ namespace AutoLevel
                         inputWave.Resize(newBounds.size);
                         foreach (var index in SpatialUtil.Enumerate(newBounds.size))
                             if (inputWave[index].Invalid()) inputWave[index] = InputWaveCell.AllGroups;
-                        ApplyInputWave(new BoundsInt(Vector3Int.zero,newBounds.size));
+                        ApplyInputWave(new BoundsInt(Vector3Int.zero, newBounds.size));
 
                         builder.levelData.bounds = newBounds;
-                        builder.ApplyLevelData();
+                        builder.ApplyAllLevelLayers();
                     }
                     if (value.position != levelBounds.position)
                     {
                         builder.levelData.position = value.position;
-                        builder.ApplyLevelData();
+                        builder.ApplyLevelPosition();
                     }
                     //to clamp selection to level bounds
                     selection = selection;
-                    levelDataDrawer.Recreate();
+                    levelDataDrawer.RebuildAll();
                 }
             }
         }
-
-
-        private LevelEditorSettingsEditor SettingsEditor;
-        private LevelEditorSettings.Settings settings => SettingsEditor.Settings;
-
-        private HandleResources handleRes;
-
-        private Tool current;
-        private BoxBoundsHandle handle = new BoxBoundsHandle();
-
-        private HashedFlagList[] groupsLists;
-        private BlocksRepo.Runtime[] boundaryRepos;
-        private LevelDataDrawer[] boundariesLevelDrawer;
-
-        private InputWaveDrawer inputWaveDrawer;
-        private LevelDataDrawer levelDataDrawer;
-
-        private string Result;
-
-        private Texture2D connectingIcon;
-        private Texture2D removeConnectionIcon;
-
-        private bool connecting = false;
-        private int connectingSide;
 
         #region Callback
 
@@ -222,18 +78,12 @@ namespace AutoLevel
         {
             builder = new SO(target);
 
-            handleRes = new HandleResources();
-            var settings = LevelEditorSettings.GetSettings();
-            SettingsEditor = (LevelEditorSettingsEditor)CreateEditor(settings, typeof(LevelEditorSettingsEditor));
+            handleRes       = new HandleResources();
+            var settings    = LevelEditorSettings.GetSettings();
+            SettingsEditor  = (LevelEditorSettingsEditor)CreateEditor(settings, typeof(LevelEditorSettingsEditor));
 
-            boundaryRepos = new BlocksRepo.Runtime[6];
-            boundariesLevelDrawer = new LevelDataDrawer[6];
-
-            var basePath = System.IO.Path.Combine( EditorHelper.GetAssemblyDirectory<LevelBuilderEditor>() , "Scripts" ,"Resources");
-            connectingIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
-                System.IO.Path.Combine(basePath, "LevelBuilderConnecting.png"));
-            removeConnectionIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
-                System.IO.Path.Combine(basePath, "LevelBuilderRemove.png"));
+            boundaryRepos           = new BlocksRepo.Runtime[6];
+            boundariesLevelDrawer   = new LevelDataDrawer[6];
 
             Initialize();
             ReCreateBoundiesLevel();
@@ -260,7 +110,7 @@ namespace AutoLevel
 
         private void UndoCallback()
         {
-            levelDataDrawer?.Recreate();
+            levelDataDrawer?.RebuildAll();
             ReCreateBoundiesLevel();
         }
 
@@ -269,7 +119,7 @@ namespace AutoLevel
         {
             var data = builder.data;
             var position = data.LevelData.position;
-            var size = (Vector3)data.LevelData.Blocks.Size;
+            var size = (Vector3)data.LevelData.size;
             DrawBounds(new Bounds(position + size * 0.5f, size), Color.yellow);
         }
 
@@ -317,6 +167,8 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
+            // layers
+
             BoundiesSettingsGUI();
 
             EditorGUILayout.Space();
@@ -325,13 +177,25 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
+            if(this.repo.LayersCount > 1)
+                LayerControlGUI();
+
             // execution //
 
             if (GUILayout.Button("Clear"))
             {
-                LevelBuilderUtlity.ClearBuild(builder);
-                builder.ApplyLevelData();
-                levelDataDrawer.Clear();
+                if(builder.rebuild_bottom_layers_editor_only)
+                {
+                    builder.levelData.ClearAllLayers();
+                    builder.ApplyAllLevelLayers();
+                    levelDataDrawer.Clear();
+                }
+                else
+                {
+                    builder.levelData.GetLayer(currentLayer).Clear();
+                    builder.ApplyLevelLayer(currentLayer);
+                    levelDataDrawer.RebuildAll();
+                }
                 SceneView.RepaintAll();
             }
 
@@ -366,8 +230,8 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            if (!string.IsNullOrEmpty(Result))
-                EditorGUILayout.HelpBox(Result, MessageType.Info);
+            if (!string.IsNullOrEmpty(Message))
+                EditorGUILayout.HelpBox(Message, MessageType.Info);
         }
 
         private void OnSceneGUI()
@@ -417,13 +281,18 @@ namespace AutoLevel
             IntegrityCheck(builder.target, this.repo);
             builder.Update();
 
+            currentLayer = builder.levelData.LayersCount - 1;
+            for (int i = 1; i < builder.levelData.LayersCount; i++)
+                if (!builder.levelData.GetLayer(i).Valid)
+                { currentLayer = i - 1; break; }
+
             if (inputWaveDrawer != null)
                 inputWaveDrawer.Dispose();
             inputWaveDrawer = new InputWaveDrawer(repo,builder);
 
             if (levelDataDrawer != null)
                 levelDataDrawer.Dispose();
-            levelDataDrawer = new LevelDataDrawer(repo, builder);
+            levelDataDrawer = new LevelDataDrawer(builder.levelData, repo);
 
             groupsLists = new HashedFlagList[6];
             for (int d = 0; d < 6; d++)
@@ -438,18 +307,33 @@ namespace AutoLevel
         {
             using (var so = new SO(levelBuilder))
             {
-                bool Apply = false;
-                foreach (var index in SpatialUtil.Enumerate(so.levelData.Blocks.Size))
+
+                if(so.levelData.LayersCount != repo.LayersCount)
                 {
-                    var b = so.levelData.Blocks[index.z, index.y, index.x];
-                    if (b != 0 && !repo.ContainsBlock(b))
-                    {
-                        so.levelData.Blocks[index.z, index.y, index.x] = 0;
-                        Apply = true;
-                    }
+                    so.levelData.SetLayerCount(repo.LayersCount);
+
+                    so.ApplyAllLevelLayers();
                 }
-                if (Apply)
-                    so.ApplyLevelData();
+
+                for (int i = 0; i < so.levelData.LayersCount; i++)
+                {
+                    var layer = so.levelData.GetLayer(i);
+                    bool applyLayer = false;
+
+                    foreach (var index in SpatialUtil.Enumerate(layer.Blocks.Size))
+                    {
+                        var b = layer.Blocks[index.z, index.y, index.x];
+                        if (b != 0 && !repo.ContainsBlock(b))
+                        {
+                            layer.Blocks[index.z, index.y, index.x] = 0;
+                            layer.Valid = false;
+                            applyLayer = true;
+                        }
+                    }
+
+                    if (applyLayer)
+                        so.ApplyLevelLayer(i);
+                }
 
                 bool groupChanged = false;
 
@@ -510,6 +394,83 @@ namespace AutoLevel
 
             }
         }
+
+        public static void LayerControlGUI(ref int layer,ref bool rebuildBottomLayers)
+        {
+            EditorGUILayout.BeginHorizontal(GUI.skin.box,GUILayout.Height(45));
+
+            EditorGUILayout.BeginVertical();
+
+            GUILayout.FlexibleSpace();
+
+            EditorGUILayout.BeginHorizontal();
+
+            rebuildBottomLayers = GUILayout.Toggle(rebuildBottomLayers, new GUIContent("R", "Rebuild all lower layer as well"), GUI.skin.button, GUILayout.Width(25));
+
+            var preWidth = EditorGUIUtility.labelWidth;
+
+            EditorGUIUtility.labelWidth = 50;
+            GUI.enabled = false;
+            EditorGUILayout.IntField("Layer", layer);
+            GUI.enabled = true;
+            EditorGUIUtility.labelWidth = preWidth;
+
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.FlexibleSpace();
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.BeginVertical();
+
+            if (GUILayout.Button("UP", GUILayout.Height(18)))
+                layer++;
+
+            if (GUILayout.Button("Down", GUILayout.Height(18)))
+                layer--;
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space();
+        }
+
+        private void LayerControlGUI()
+        {
+            int layer = currentLayer;
+            bool rebuildBottomLayers = builder.rebuild_bottom_layers_editor_only;
+
+            LayerControlGUI(ref layer, ref rebuildBottomLayers);
+
+            if(layer > currentLayer)
+            {
+                if (layer < repo.LayersCount)
+                {
+                    if (!builder.levelData.GetLayer(currentLayer).Valid)
+                        Message = "you need to build the layer fully before editing upper layer!";
+                    else
+                        currentLayer++;
+                }
+            }
+            else if ( layer < currentLayer)
+            {
+                if (layer > 0)
+                {
+                    builder.levelData.GetLayer(currentLayer).Clear();
+                    builder.ApplyLevelLayer(currentLayer);
+                    levelDataDrawer.RebuildAll();
+                    currentLayer--;
+                }
+            }
+
+            if(rebuildBottomLayers != builder.rebuild_bottom_layers_editor_only)
+            {
+                builder.rebuild_bottom_layers_editor_only = rebuildBottomLayers;
+                builder.ApplyField(nameof(SO.rebuild_bottom_layers_editor_only));
+            }
+        }
+
         private void ReCreateBoundiesLevel()
         {
             CleanBoundiesLevel();
@@ -532,7 +493,7 @@ namespace AutoLevel
 
                 IntegrityCheck(boundaryLevel, boundaryRepos[d]);
 
-                boundariesLevelDrawer[d] = new LevelDataDrawer(boundaryRepos[d], boundaryLevel.data);
+                boundariesLevelDrawer[d] = new LevelDataDrawer(boundaryLevel.data.LevelData, boundaryRepos[d]);
             }
         }
         private void CleanBoundiesLevel()
@@ -549,10 +510,51 @@ namespace AutoLevel
         private void Rebuild(BoundsInt bounds)
         {
             var sb = new System.Text.StringBuilder();
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-
             bounds.position -= levelBounds.position;
 
+            if (!builder.rebuild_bottom_layers_editor_only)
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                var count = Rebuild(bounds, currentLayer);
+                if (count > 0)
+                {
+                    sb.AppendLine($"build succeeded ,completion time {watch.ElapsedTicks / 10000f} ms, number of iterations {count}, number of blocks {repo.BlocksCount}");
+                    builder.ApplyLevelLayer(bounds,currentLayer);
+                    levelDataDrawer.RebuildAll();
+                }
+                else
+                    sb.Append($"build failed!");
+            }
+            else
+            {
+                int count = 0;
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                bool passed = true;
+                for (int i = 0; i < currentLayer + 1; i++)
+                {
+                    var c = Rebuild(bounds, i);
+                    count += c;
+                    if(c == 0)
+                    {
+                        passed = false;
+                        sb.Append($"build failed at layer {i}");
+                        break;
+                    }
+                }
+                if(passed)
+                {
+                    sb.AppendLine($"build succeeded ,completion time {watch.ElapsedTicks / 10000f} ms, number of iterations {count}, number of blocks {repo.BlocksCount}");
+                    for (int i = 0; i < currentLayer + 1; i++)
+                        builder.ApplyLevelLayer(bounds, i);
+                    levelDataDrawer.RebuildAll();
+                }
+            }
+
+            Message = sb.ToString();
+        }
+
+        private int Rebuild(BoundsInt bounds, int layer)
+        {
             BaseLevelSolver solver;
 
             if (builder.useMutliThreadedSolver)
@@ -562,24 +564,9 @@ namespace AutoLevel
 
             LevelBuilderUtlity.UpdateLevelSolver(builder, repo, solver);
 
-            int c = solver.Solve(bounds, settings.MaxIterations);
-
-            if (c > 0)
-            {
-                sb.AppendLine($"build succeeded ,completion time {watch.ElapsedTicks / 10000f} ms ,iteration {c} ,number of blocks {repo.BlocksCount}");
-                builder.ApplyLevelData(bounds);
-
-                watch.Restart();
-
-                levelDataDrawer.Recreate();
-
-                sb.AppendLine($"time to rebuild {watch.ElapsedTicks / 10000f} ms");
-            }
-            else
-                sb.Append("build failed");
-
-            Result = sb.ToString();
+            return solver.Solve(bounds, layer, settings.MaxIterations);
         }
+
         private void ExportMesh()
         {
             var path = EditorUtility.SaveFilePanelInProject("Mesh Export", "level ", "fbx", "Mesh Export");
@@ -675,7 +662,7 @@ namespace AutoLevel
 
                     EditorGUILayout.LabelField(repo.GetWeightGroupName(i));
 
-                    var setting = groupsSettings[i];
+                    var setting = builder.groupsWeights[i];
 
                     EditorGUILayout.BeginHorizontal();
 
@@ -922,7 +909,7 @@ namespace AutoLevel
                         SetPrimitiveMesh(PrimitiveType.Quad).
                         SetMaterial(MaterialType.UI).
                         SetColor(NiceColors.PictonBlue).
-                        SetTexture(connectingIcon).
+                        SetTexture(handleRes.connectingIcon).
                         Scale(2f);
 
             if (!connecting)
@@ -938,7 +925,7 @@ namespace AutoLevel
                     if (builder.boundarySettings.levelBoundary[d] != null)
                     {
                         var btnCmd = cmd;
-                        btnCmd.SetTexture(removeConnectionIcon);
+                        btnCmd.SetTexture(handleRes.removeConnectionIcon);
                         btnCmd.SetColor(NiceColors.ImperialRed);
                         btnCmd.LookAt(-normal);
                         btnCmd.Move(pos);
@@ -957,7 +944,7 @@ namespace AutoLevel
                                 delta[d % 3] = so.levelData.bounds.size[d % 3] * (d < 3 ? -1 : 1);
                                 so.levelData.position += delta;
 
-                                so.ApplyLevelData();
+                                so.ApplyLevelPosition();
                             }
 
                             Connect(null, d);
@@ -1043,7 +1030,7 @@ namespace AutoLevel
 
                     so.levelData.position += delta;
 
-                    so.ApplyLevelData();
+                    so.ApplyLevelPosition();
                 }
             }
 

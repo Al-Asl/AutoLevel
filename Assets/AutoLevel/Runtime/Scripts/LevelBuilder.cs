@@ -4,8 +4,6 @@ using AlaslTools;
 
 namespace AutoLevel
 {
-
-
     public interface ILevelBuilderData
     {
         LevelBuilder Builder { get; }
@@ -47,17 +45,13 @@ namespace AutoLevel
                 Builder = builder;
             }
 
-            public bool UseMutliThreadedSolver => Builder.useMutliThreadedSolver;
-
-            public LevelBuilder Builder { get; set; }
-
-            public BlocksRepo BlockRepo => Builder.blockRepo;
-
-            public List<GroupSettings> GroupsWeights => Builder.groupsWeights;
-            public BoundarySettings BoundarySettings => Builder.boundarySettings;
-
-            public LevelData LevelData => Builder.levelData;
-            public Array3D<InputWaveCell> InputWave => Builder.inputWave;
+            public LevelBuilder Builder                 { get; set; }
+            public bool UseMutliThreadedSolver          => Builder.useMutliThreadedSolver;
+            public BlocksRepo BlockRepo                 => Builder.blockRepo;
+            public List<GroupSettings> GroupsWeights    => Builder.groupsWeights;
+            public BoundarySettings BoundarySettings    => Builder.boundarySettings;
+            public LevelData LevelData                  => Builder.levelData;
+            public Array3D<InputWaveCell> InputWave     => Builder.inputWave;
         }
 
         public Data data => new Data(this);
@@ -81,6 +75,11 @@ namespace AutoLevel
         [SerializeField]
         private Array3D<InputWaveCell> inputWave = new Array3D<InputWaveCell>(Vector3Int.one * k_start_size);
 
+#if UNITY_EDITOR
+        [SerializeField]
+        private bool rebuild_bottom_layers_editor_only;
+#endif
+
         private BaseLevelSolver solver;
         private BlocksRepo.Runtime repo;
         private LevelMeshBuilder meshBuilder;
@@ -88,28 +87,33 @@ namespace AutoLevel
         [ContextMenu("Rebuild")]
         public bool Rebuild()
         {
-            return Rebuild(new BoundsInt(Vector3Int.zero,levelData.Blocks.Size));
+            for (int i = 0; i < levelData.LayersCount; i++)
+            {
+                if (!Rebuild(new BoundsInt(Vector3Int.zero, levelData.size), i))
+                    return false;
+            }
+            return true;
         }
 
-        public bool Rebuild(BoundsInt region)
+        public bool Rebuild(BoundsInt region,int layer)
         {
             if(solver == null)
             {
                 if(useMutliThreadedSolver)
-                    solver = new LevelSolverMT(levelData.Blocks.Size);
+                    solver = new LevelSolverMT(levelData.size);
                 else
-                    solver = new LevelSolver(levelData.Blocks.Size);
+                    solver = new LevelSolver(levelData.size);
 
                 repo = blockRepo.CreateRuntime();
                 meshBuilder = new LevelMeshBuilder(levelData, repo);
             }
             LevelBuilderUtlity.UpdateLevelSolver(data, repo, solver);
-            var itr = solver.Solve(region);
+            var itr = solver.Solve(region, layer);
             if (itr == 0)
                 return false;
             else
             {
-                meshBuilder.Rebuild(region);
+                meshBuilder.Rebuild(region, layer);
                 return true;
             }
         }

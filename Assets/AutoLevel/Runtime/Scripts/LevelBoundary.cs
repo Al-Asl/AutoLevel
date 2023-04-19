@@ -28,19 +28,21 @@ namespace AutoLevel
         public LevelBoundaryResult(int block) : this()
         {
             option = LevelBoundaryOption.Block;
-            this.block = block;
             waveBlock = default;
+            this.block = block;
         }
     }
 
     public interface ILevelBoundary
     {
+        public void SetLayer(int index);
         LevelBoundaryResult Evaluate(Vector3Int index);
     }
 
     public class GroupsBoundary : ILevelBoundary
     {
         private InputWaveCell iWave;
+        private int layer;
 
         public GroupsBoundary(InputWaveCell iWave)
         {
@@ -56,8 +58,10 @@ namespace AutoLevel
 
         public LevelBoundaryResult Evaluate(Vector3Int index)
         {
-            return new LevelBoundaryResult(iWave);
+            return layer > 0 ? new LevelBoundaryResult() : new LevelBoundaryResult(iWave);
         }
+
+        public void SetLayer(int index) { this.layer = index; }
     }
 
     public class BlockBoundary : ILevelBoundary
@@ -73,6 +77,8 @@ namespace AutoLevel
         {
             return new LevelBoundaryResult(block);
         }
+
+        public void SetLayer(int index) { }
     }
 
     public class LevelBoundary : ILevelBoundary
@@ -81,6 +87,8 @@ namespace AutoLevel
         private LevelData level;
         private Array3D<InputWaveCell> wave;
         private ILevelBoundary fallBack;
+        private LevelLayer layer;
+        private int layerIndex;
 
         public LevelBoundary(LevelData level, Array3D<InputWaveCell> wave, ILevelBoundary fallBack)
         {
@@ -90,19 +98,35 @@ namespace AutoLevel
             this.fallBack = fallBack;
         }
 
+        public void SetLayer(int index) {
+            layerIndex = index;
+            layer = level.GetLayer(index);
+            fallBack?.SetLayer(index);
+        }
+
         public LevelBoundaryResult Evaluate(Vector3Int index)
         {
             var localIndex = index - level.position;
             bool contain = bounds.Contains(index);
 
-            if(contain && level.Blocks[localIndex] != 0)
-                return new LevelBoundaryResult(level.Blocks[localIndex]);
-            else if(contain && wave != null)
-                return new LevelBoundaryResult(wave[localIndex]);
-            else if(fallBack != null)
+            if(contain)
+            {
+                var blockIndex = layer.Blocks[localIndex];
+                if (blockIndex != 0)
+                    return new LevelBoundaryResult(blockIndex);
+                else if (layerIndex == 0)
+                    if(wave != null)
+                        return new LevelBoundaryResult(wave[localIndex]);
+                else
+                {
+                    // fall-back to block from bottom layer!
+                }
+            }
+
+            if (fallBack != null)
                 return fallBack.Evaluate(index);
             else
-                return new LevelBoundaryResult(InputWaveCell.AllGroups);
+                return new LevelBoundaryResult();
         }
     }
 

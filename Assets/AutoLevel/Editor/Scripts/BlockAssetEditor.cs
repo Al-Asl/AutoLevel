@@ -15,9 +15,10 @@ namespace AutoLevel
     {
         public class SO : BaseSO<BlockAsset>
         {
-            public List<int> actionsGroups;
             public int group;
             public int weightGroup;
+
+            public List<int> actionsGroups;
             public List<BlockAsset.VariantDesc> variants;
 
             public SO(SerializedObject serializedObject) : base(serializedObject) { }
@@ -126,10 +127,8 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            var variant = variants[selected];
-
             EditorGUI.BeginDisabledGroup(selected == 0);
-            variantsReordable.list = variant.actions;
+            variantsReordable.list = selectedVar.actions;
             variantsReordable.DoLayoutList();
             EditorGUI.EndDisabledGroup();
 
@@ -137,14 +136,28 @@ namespace AutoLevel
 
             EditorGUI.BeginChangeCheck();
 
-            variant.sideIds.right = EditorGUILayout.IntField("Right", variant.sideIds.right);
-            variant.sideIds.left = EditorGUILayout.IntField("Left", variant.sideIds.left);
-            variant.sideIds.up = EditorGUILayout.IntField("Up", variant.sideIds.up);
-            variant.sideIds.down = EditorGUILayout.IntField("Down", variant.sideIds.down);
-            variant.sideIds.forward = EditorGUILayout.IntField("Front", variant.sideIds.forward);
-            variant.sideIds.backward = EditorGUILayout.IntField("Back", variant.sideIds.backward);
+            selectedVar.sideIds.right       = EditorGUILayout.IntField("Right", selectedVar.sideIds.right);
+            selectedVar.sideIds.left        = EditorGUILayout.IntField("Left", selectedVar.sideIds.left);
+            selectedVar.sideIds.up          = EditorGUILayout.IntField("Up", selectedVar.sideIds.up);
+            selectedVar.sideIds.down        = EditorGUILayout.IntField("Down", selectedVar.sideIds.down);
+            selectedVar.sideIds.forward     = EditorGUILayout.IntField("Front", selectedVar.sideIds.forward);
+            selectedVar.sideIds.backward    = EditorGUILayout.IntField("Back", selectedVar.sideIds.backward);
+
             EditorGUILayout.Space();
-            variant.weight = EditorGUILayout.FloatField("Weight", variant.weight);
+
+            
+            selectedVar.weight = EditorGUILayout.FloatField("Weight", selectedVar.weight);
+
+            EditorGUILayout.Space();
+
+            var layerSettings = selectedVar.layerSettings;
+
+            layerSettings.layer = EditorGUILayout.IntField("Layer", layerSettings.layer);
+            if (!layerSettings.PartOfBaseLayer)
+            {
+                layerSettings.resolve = (BlocksResolve)EditorGUILayout.EnumPopup("Block Resolve", layerSettings.resolve);
+                layerSettings.placement = (BlockPlacement)EditorGUILayout.EnumPopup("Block Placement", layerSettings.placement);
+            }
 
             if (EditorGUI.EndChangeCheck() || variantsReordableChanged)
             {
@@ -155,7 +168,7 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            if (variant.bigBlock != null && GUILayout.Button("Deattach From Big Block"))
+            if (selectedVar.bigBlock != null && GUILayout.Button("Deattach From Big Block"))
                 DetachFromBigBlock(selected);
 
             EditorGUILayout.Space();
@@ -182,7 +195,7 @@ namespace AutoLevel
             if (connecting)
                 DrawAssetsBlocksSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
             else
-                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target));
+                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target), selectedVar.layerSettings.layer);
 
             DoBlockToBigBlockConnectionsControls();
 
@@ -201,10 +214,14 @@ namespace AutoLevel
             if (settings.EditMode == BlockEditMode.Fill)
                 FillControls();
 
+            if (settings.EditMode == BlockEditMode.Layer)
+                LayerControl();
+
             DoContextMenu();
         }
 
         #endregion
+
 
 
         private void InitGroups()
@@ -444,6 +461,38 @@ namespace AutoLevel
             bool pressed = Button.Draw<SphereD>();
             return pressed ? !value : value;
         }
+
+        private void LayerControl()
+        {
+            var layerSettings = selectedVar.layerSettings;
+
+            for (int i = 0; i < variants.Count; i++)
+            {
+                var block = new AssetBlock(i, blockAsset.target);
+                foreach(var depBlock in block.layerSettings.dependencies)
+                    DrawBlockOutlineConnection(GetBlockPosition(block), GetBlockPosition(depBlock) , NiceColors.Pistachio);
+            }
+
+            var targetLayer = layerSettings.layer - 1;
+
+            foreach (var block in GetBlocksIt(AssetType.BlockAsset))
+            {
+                if (block.Item1.layerSettings.layer == targetLayer)
+                {
+                    if (BlockButton(block.Item1, block.Item2))
+                    {
+                        bool contain = layerSettings.dependencies.Contains(block.Item1);
+                        if (contain)
+                            layerSettings.dependencies.Remove(block.Item1);
+                        else
+                            layerSettings.dependencies.Add(block.Item1);
+
+                        blockAsset.ApplyField(nameof(SO.variants));
+                    }
+                }
+            }
+        }
+
         private void DoContextMenu()
         {
             Handles.BeginGUI();
@@ -498,11 +547,14 @@ namespace AutoLevel
             if (GUILayout.Button(settings.EditMode.ToString()))
             {
                 GenericMenu menu = new GenericMenu();
-                var names = System.Enum.GetNames(typeof(BlockEditMode));
-                for (int i = 0; i < names.Length; i++)
+                var values = selectedVar.layerSettings.PartOfBaseLayer ?
+                    new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Fill } :
+                    new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Layer };
+
+                for (int i = 0; i < values.Length; i++)
                 {
-                    var value = (BlockEditMode)i;
-                    menu.AddItem(new GUIContent(names[i]), false, () =>
+                    var value = values[i];
+                    menu.AddItem(new GUIContent(value.ToString()), false, () =>
                     {
                         settings.EditMode = value;
                         settingsSO.Apply();

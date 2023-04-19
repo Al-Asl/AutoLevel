@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,36 +13,38 @@ namespace AutoLevel
         public class VariantDesc
         {
             public BigBlockAsset bigBlock;
-            public List<BlockAction> actions = new List<BlockAction>();
-            public ConnectionsIds sideIds = new ConnectionsIds();
-            public int fill = 0;
-            public float weight = 1f;
+
+            public List<BlockAction>    actions = new List<BlockAction>();
+            public ConnectionsIds       sideIds = new ConnectionsIds();
+            public int                  fill    = 0;
+            public float                weight  = 1f;
+
+            public LayerSettings        layerSettings;
 
 #if UNITY_EDITOR
             [HideInInspector, SerializeField]
             public Vector3 position_editor_only;
 #endif
-
-            public VariantDesc()
-            {
-                actions = new List<BlockAction>();
-            }
+            public VariantDesc() { }
 
             public VariantDesc(VariantDesc other)
             {
 #if UNITY_EDITOR
                 position_editor_only = other.position_editor_only;
 #endif
-                actions = new List<BlockAction>(other.actions);
-                fill = other.fill;
-                sideIds = other.sideIds;
+                actions         = new List<BlockAction>(other.actions);
+                fill            = other.fill;
+                sideIds         = other.sideIds;
+                layerSettings   = new LayerSettings(other.layerSettings);
             }
         }
+
 
         [SerializeField]
         public int group;
         [SerializeField]
         public int weightGroup;
+
         [SerializeField]
         public List<int> actionsGroups = new List<int>();
         [SerializeField]

@@ -20,14 +20,16 @@ namespace AutoLevel
         private LevelEditorSettingsEditor SettingsEditor;
 
         private EditorLevelGroupManager groupManager;
-        private List<LevelDataDrawer> levelDataDrawers = new List<LevelDataDrawer>();
-        private List<InputWaveDrawer> inputWaveDrawers = new List<InputWaveDrawer>();
+        private List<LevelDataDrawer>   levelDataDrawers = new List<LevelDataDrawer>();
+        private List<InputWaveDrawer>   inputWaveDrawers = new List<InputWaveDrawer>();
 
-        private Vector2 scrollPos;
-        private int selectedGroup = -1;
-        private bool useSolverMT;
+        private Vector2     scrollPos;
+        private int         selectedGroup = -1;
+        private bool        useSolverMT;
+        private int         layer;
+        private bool        rebuildBottomLayers;
 
-        private string result = "";
+        private string Message = "";
 
         private bool[][] builderToggles;
 
@@ -68,8 +70,8 @@ namespace AutoLevel
 
         private void OnDisable()
         {
-            SceneView.duringSceneGui -= DuringSceneGUI;
-            Undo.undoRedoPerformed -= UndoRedoPerformed;
+            SceneView.duringSceneGui    -= DuringSceneGUI;
+            Undo.undoRedoPerformed      -= UndoRedoPerformed;
 
             DestroyImmediate(SettingsEditor);
 
@@ -135,6 +137,9 @@ namespace AutoLevel
 
             EditorGUILayout.EndVertical();
 
+            if(GetRepoOfFirstBuilder(selectedGroup).LayersCount > 1)
+                LayerGUI();
+
             if (GUILayout.Toggle(useSolverMT, "Use Multi Thread", GUI.skin.button) != useSolverMT)
             {
                 useSolverMT = !useSolverMT;
@@ -149,7 +154,12 @@ namespace AutoLevel
 
             if(GUILayout.Button("Clear"))
             {
-                groupManager.ClearGroup(selectedGroup);
+                if(rebuildBottomLayers)
+                    for (int i = 0; i < layer; i++)
+                        groupManager.ClearGroupLayer(selectedGroup, i);
+                else
+                    groupManager.ClearGroupLayer(selectedGroup, layer);
+
                 ReDraw();
             }
 
@@ -174,19 +184,66 @@ namespace AutoLevel
 
             EditorGUILayout.EndHorizontal();
 
-            if (!string.IsNullOrEmpty(result))
-                EditorGUILayout.HelpBox(result,MessageType.Info);
+            if (!string.IsNullOrEmpty(Message))
+                EditorGUILayout.HelpBox(Message,MessageType.Info);
+        }
+
+        private BlocksRepo.Runtime GetRepoOfFirstBuilder(int group)
+        {
+            var builder = groupManager.GetBuilderGroup(group).First();
+            return groupManager.GetRepo(builder);
+        }
+
+        private void LayerGUI()
+        {
+            int layer = this.layer;
+
+            LevelBuilderEditor.LayerControlGUI(ref layer, ref rebuildBottomLayers);
+
+            if (layer > this.layer)
+            {
+                if (layer < GetRepoOfFirstBuilder(selectedGroup).LayersCount)
+                {
+                    if (groupManager.GetBuilderGroup(selectedGroup).
+                        Any((builder)=> !builder.levelData.GetLayer(this.layer).Valid))
+                        Message = "you need to build the layer fully before editing upper layer!";
+                    else
+                        this.layer++;
+                }
+            }
+            else if (layer < this.layer)
+            {
+                if (layer > 0)
+                {
+                    groupManager.ClearGroupLayer(this.layer, selectedGroup);
+                    ReDraw();
+                    this.layer--;
+                }
+            }
         }
 
         private void Rebuild()
         {
-            bool result = groupManager.Rebuild(selectedGroup, builderToggles[selectedGroup]);
+            bool result = true;
+
+            if(rebuildBottomLayers)
+            {
+                for (int i = 0; i <= layer; i++)
+                    if (!groupManager.Rebuild(selectedGroup, i, builderToggles[selectedGroup]))
+                    {
+                        result = false;
+                        break;
+                    }
+            }
+            else
+                result = groupManager.Rebuild(selectedGroup, layer, builderToggles[selectedGroup]);
+
             ReDraw();
 
             if (result)
-                this.result = "build succeeded";
+                Message = "build succeeded";
             else
-                this.result = "build failed";
+                Message = "build failed";
         }
 
         private void ExportMeshes()
@@ -230,6 +287,7 @@ namespace AutoLevel
             if(index != selectedGroup)
             {
                 selectedGroup = index;
+                layer = Mathf.Min(layer,GetRepoOfFirstBuilder(selectedGroup).LayersCount - 1);
                 ReDraw();
             }
         }
@@ -242,7 +300,7 @@ namespace AutoLevel
 
             foreach (var builder in buildersGroup)
             {
-                levelDataDrawers.Add(new LevelDataDrawer(groupManager.GetRepo(builder), builder));
+                levelDataDrawers.Add(new LevelDataDrawer(builder.levelData, groupManager.GetRepo(builder)));
                 inputWaveDrawers.Add(new InputWaveDrawer(groupManager.GetRepo(builder), builder));
             }
         }

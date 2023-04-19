@@ -17,7 +17,17 @@ namespace AutoLevel
 
     public static class ActionsUtility
     {
+        public const int EMPTY_ACTIONS_HASH = 0;
+
         private static readonly string[] action_prefix = { "_rx", "_ry", "_rz", "_mx", "_my", "_mz", "_f" };
+
+        public static bool AreEquals(List<BlockAction> a, List<BlockAction>b)
+        {
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+                if (a[i] != b[i]) return false;
+            return true;
+        }
 
         public static int GetActionsHash(List<BlockAction> actions)
         {

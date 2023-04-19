@@ -18,7 +18,7 @@ namespace AutoLevel
             void Propagate();
             void Ban(Possibility poss);
         }
-        
+
         class PropagterMT : IPropagter
         {
             private LevelSolverMT solver;
@@ -58,7 +58,7 @@ namespace AutoLevel
 
             public void Propagate()
             {
-                while(true)
+                while (true)
                 {
                     int maxIndex = -1;
                     int max = 0;
@@ -123,7 +123,7 @@ namespace AutoLevel
             private int GetIndex(Vector3Int pos) => SpatialUtil.Index3DTo1D(pos, solver.solveBounds.size);
             private int GetConfig(Vector3Int pos) => (pos.z % 3) * 9 + (pos.y % 3) * 3 + pos.x % 3;
 
-            
+
         }
 
         class PropagterST : IPropagter
@@ -160,7 +160,7 @@ namespace AutoLevel
             }
         }
 
-        public struct WaveCellPoss
+        public struct WaveCellCounter
         {
             public int this[int d]
             {
@@ -221,23 +221,23 @@ namespace AutoLevel
         private PropagterST propagterST;
         private PropagterMT propagterMT;
 
-        protected Dictionary<int, WaveCellPoss>[,,] wave;
+        protected Dictionary<int, WaveCellCounter>[,,] wave;
 
         public LevelSolverMT(Vector3Int size) : base(size)
         {
             propagterST = new PropagterST(this);
             propagterMT = new PropagterMT(this);
 
-            wave = new Dictionary<int, WaveCellPoss>[size.z, size.y, size.x];
+            wave = new Dictionary<int, WaveCellCounter>[size.z, size.y, size.x];
             foreach (var index in SpatialUtil.Enumerate(size))
-                wave[index.z, index.y, index.x] = new Dictionary<int, WaveCellPoss>();
+                wave[index.z, index.y, index.x] = new Dictionary<int, WaveCellCounter>();
         }
 
         protected override void FillLevelData()
         {
             SpatialUtil.ParallelEnumrate(solveBounds.size, (index) =>
             {
-                levelData.Blocks[index + solveBounds.min] =
+                layer.Blocks[index + solveBounds.min] =
                     repo.GetBlockHash(wave[index.z, index.y, index.x].First().Key);
             });
         }
@@ -255,8 +255,27 @@ namespace AutoLevel
 
         protected override void Fill()
         {
+            if (layerIndex != 0)
+            {
+                Parallel.ForEach(SolverVolume, (index) =>
+                {
+                    var blocks = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[index]));
+                    weights[index.z, index.y, index.x] = blocks.Sum((b) => blockWeights[b]);
+                });
 
-            if (inputWave == null)
+                SpatialUtil.ParallelEnumrate(size, () =>
+                {
+                    var counter = new int[6][];
+                    for (int j = 0; j < 6; j++)
+                        counter[j] = new int[repo.BlocksCount];
+                    return counter;
+                },
+                (index, state, counter) =>
+                {
+                    FillUpperCell(index, counter);
+                });
+            }
+            else if (inputWave == null)
             {
                 Parallel.ForEach(SolverVolume, (index) =>
                 {
@@ -264,7 +283,7 @@ namespace AutoLevel
                     var wc = wave[index.z, index.y, index.x];
                     for (int b = 0; b < repo.BlocksCount; b++)
                     {
-                        var conn = new WaveCellPoss();
+                        var conn = new WaveCellCounter();
                         for (int d = 0; d < 6; d++)
                             conn[opposite[d]] = repo.Connections[d][b].Length;
                         wc[b] = conn;
@@ -292,57 +311,108 @@ namespace AutoLevel
                 },
                 (index, state, counter) =>
                 {
-                    var li = index + solveBounds.min;
-                    var iwc = inputWave[li.z, li.y, li.x];
-                    var wc = wave[index.z, index.y, index.x];
+                    FillCell(index, counter);
+                });
+            }
+        }
 
+        private void FillUpperCell(Vector3Int index, int[][] counter)
+        {
+            var li = index + solveBounds.min;
+            var wc = wave[index.z, index.y, index.x];
+            var iwc = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[li]));
+
+            for (int d = 0; d < 6; d++)
+            {
+                var ni = index + delta[d];
+
+                if (OnBoundary(ni))
+                {
+                    counter[d].Fill(() => 1);
+                    continue;
+                }
+
+                counter[d].Fill(() => 0);
+
+                var nli = li + delta[d];
+                var niwc = repo.GetUpperLayerBlocks(repo.GetBlockIndex(preLayer.Blocks[nli]));
+
+                CountConnections(iwc, niwc, d, counter[d]);
+            }
+
+            foreach (var b in iwc)
+            {
+                var c = new WaveCellCounter();
+                bool ban = false;
+                for (int d = 0; d < 6; d++)
+                {
+                    var count = counter[d][b];
+                    if (count == 0)
+                    {
+                        ban = true;
+                        break;
+                    }
+                    c[opposite[d]] = count;
+                }
+
+                if (ban)
+                    Ban(new Possibility(index, b));
+                else
+                    wc[b] = c;
+            }
+        }
+
+        private void FillCell(Vector3Int index, int[][] counter)
+        {
+            var li = index + solveBounds.min;
+            var iwc = inputWave[li.z, li.y, li.x];
+            var wc = wave[index.z, index.y, index.x];
+
+            for (int d = 0; d < 6; d++)
+            {
+                var ni = index + delta[d];
+
+                if (OnBoundary(ni))
+                {
+                    counter[d].Fill(() => 1);
+                    continue;
+                }
+
+                counter[d].Fill(() => 0);
+
+                var nli = li + delta[d];
+                var niwc = inputWave[nli.z, nli.y, nli.x];
+
+                CountConnections(iwc, niwc, d, counter[d]);
+            }
+
+            for (int group = 0; group < repo.GroupsCount; group++)
+            {
+                if (!iwc[group])
+                    continue;
+
+                var range = repo.GetGroupRange(group, layerIndex);
+
+                for (int b = range.x; b < range.y; b++)
+                {
+                    var c = new WaveCellCounter();
+                    bool ban = false;
                     for (int d = 0; d < 6; d++)
                     {
-                        var ni = index + delta[d];
-
-                        if (OnBoundary(ni))
+                        var count = counter[d][b];
+                        if (count == 0)
                         {
-                            counter[d].Fill(() => 1);
-                            continue;
+                            ban = true;
+                            break;
                         }
-
-                        counter[d].Fill(() => 0);
-
-                        var nli = li + delta[d];
-                        var niwc = inputWave[nli.z, nli.y, nli.x];
-
-                        CountConnections(iwc, niwc, d, counter[d]);
+                        c[opposite[d]] = count;
                     }
 
-                    for (int group = 0; group < repo.GroupsCount; group++)
-                    {
-                        if (!iwc[group])
-                            continue;
-
-                        var range = repo.GetGroupRange(group);
-
-                        for (int b = range.x; b < range.y; b++)
-                        {
-                            var c = new WaveCellPoss();
-                            bool ban = false;
-                            for (int d = 0; d < 6; d++)
-                            {
-                                var count = counter[d][b];
-                                if (count == 0)
-                                {
-                                    ban = true;
-                                    break;
-                                }
-                                c[opposite[d]] = count;
-                            }
-
-                            if (ban)
-                                Ban(new Possibility(index, b));
-                            else
-                                wc[b] = c;
-                        }
-                    }
-                });
+                    if (ban)
+                        Ban(new Possibility(index, b));
+                    else
+                        wc[b] = c;
+                }
             }
         }
 
@@ -480,7 +550,7 @@ namespace AutoLevel
             propagter.Propagate();
 
             //the multi threaded propagation only run once
-            if(propagter == propagterMT)
+            if (propagter == propagterMT)
             {
                 propagterMT.FillStack(propagterST.stack);
                 propagter = propagterST;

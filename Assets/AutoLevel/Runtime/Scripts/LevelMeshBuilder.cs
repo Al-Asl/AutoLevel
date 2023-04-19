@@ -17,7 +17,7 @@ namespace AutoLevel
 
         private int tilesPerGroup;
 
-        private TileGroup[,,] groups;
+        private List<TileGroup[,,]> layers;
 
         public LevelMeshBuilder(LevelData levelData,
         BlocksRepo.Runtime blockRepo, int tilesPerGroup = 5) : base(levelData, blockRepo)
@@ -27,33 +27,42 @@ namespace AutoLevel
                 levelData.bounds.size.x * 1f / tilesPerGroup,
                 levelData.bounds.size.y * 1f / tilesPerGroup,
                 levelData.bounds.size.z * 1f / tilesPerGroup));
-            groups = new TileGroup[groupsSize.z, groupsSize.y, groupsSize.x];
 
-            foreach (var index in SpatialUtil.Enumerate(groupsSize))
+            layers = new List<TileGroup[,,]>(levelData.LayersCount);
+            for (int i = 0; i < levelData.LayersCount; i++)
             {
-                var go = new GameObject($"group {index}");
-                go.transform.SetParent(root);
-                go.transform.localPosition = index * tilesPerGroup;
-                var mesh = new Mesh();
-                go.AddComponent<MeshFilter>().mesh = mesh;
-                var group = new TileGroup()
+                var layer = new TileGroup[groupsSize.z, groupsSize.y, groupsSize.x];
+                var layerTransform = new GameObject($"Layer {i}").transform;
+                layerTransform.transform.SetParent(root);
+
+                foreach (var index in SpatialUtil.Enumerate(groupsSize))
                 {
-                    mesh = mesh,
-                    transform = go.transform,
-                    renderer = go.AddComponent<MeshRenderer>(),
-                    collider = go.AddComponent<MeshCollider>()
-                };
-                groups[index.z, index.y, index.x] = group;
+                    var go = new GameObject($"group {index}");
+                    go.transform.SetParent(layerTransform);
+                    go.transform.localPosition = index * tilesPerGroup;
+                    var mesh = new Mesh();
+                    go.AddComponent<MeshFilter>().mesh = mesh;
+                    var group = new TileGroup()
+                    {
+                        mesh = mesh,
+                        transform = go.transform,
+                        renderer = go.AddComponent<MeshRenderer>(),
+                        collider = go.AddComponent<MeshCollider>()
+                    };
+                    layer[index.z, index.y, index.x] = group;
+                }
+
+                layers.Add(layer);
             }
         }
 
-        public override void Rebuild(BoundsInt area)
+        public override void Rebuild(BoundsInt area, int layer)
         {
             root.transform.position = levelData.bounds.position;
             var gStart = area.min / tilesPerGroup;
             var gEnd = (area.max - Vector3Int.one) / tilesPerGroup + Vector3Int.one;
             foreach (var index in SpatialUtil.Enumerate(gStart, gEnd))
-                RebuildGroup(index);
+                RebuildGroup(index, layer);
         }
 
         struct MeshInstance
@@ -63,18 +72,19 @@ namespace AutoLevel
             public Vector3 offset;
         }
 
-        void RebuildGroup(Vector3Int index)
+        void RebuildGroup(Vector3Int index, int layer)
         {
             var area = GetGroupBoundary(index);
-            var group = groups[index.z, index.y, index.x];
+            var group = layers[layer][index.z, index.y, index.x];
+            var blocks = levelData.GetLayer(layer).Blocks;
 
             List<MeshInstance> meshes = new List<MeshInstance>(tilesPerGroup * tilesPerGroup * 2);
             Dictionary<Material, int> materialsHistogram = new Dictionary<Material, int>();
 
             foreach (var i in SpatialUtil.Enumerate(area.min, area.max))
             {
-                var block_h = levelData.Blocks[i.z, i.y, i.x];
-                if (block_h != -1)
+                var block_h = blocks[i.z, i.y, i.x];
+                if (block_h != -1 && ShouldInclude(i, layer))
                 {
                     var block = repo.GetBlockResourcesByHash(block_h);
                     if (block.mesh != null)
@@ -165,8 +175,13 @@ namespace AutoLevel
 
         public override void Dispose()
         {
-            foreach (var index in SpatialUtil.Enumerate(groups))
-                GameObjectUtil.SafeDestroy(groups[index.z, index.y, index.x].mesh);
+            for (int i = 0; i < layers.Count; i++)
+            {
+                var layer = layers[i];
+                foreach (var index in SpatialUtil.Enumerate(layer))
+                    GameObjectUtil.SafeDestroy(layer[index.z, index.y, index.x].mesh);
+            }
+            
             if(root != null)
                 GameObjectUtil.SafeDestroy(root.gameObject);
         }

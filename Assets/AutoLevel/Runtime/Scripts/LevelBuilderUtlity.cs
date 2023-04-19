@@ -28,6 +28,7 @@ namespace AutoLevel
 
             private CancellationTokenSource cancelSource;
             private int iterations = 1;
+            private int layer;
 
             public LevelGroupSolver(IEnumerable<ILevelBuilderData> buildersData, IEnumerable<BlocksRepo.Runtime> repos, bool useSolverMT = false, int iterations = 1)
             {
@@ -40,9 +41,9 @@ namespace AutoLevel
 
                     BaseLevelSolver solver = null;
                     if (useSolverMT)
-                        solver = new LevelSolverMT(builderData.LevelData.Blocks.Size);
+                        solver = new LevelSolverMT(builderData.LevelData.size);
                     else
-                        solver = new LevelSolver(builderData.LevelData.Blocks.Size);
+                        solver = new LevelSolver(builderData.LevelData.size);
 
                     BuildersResources[builderData.Builder] = new BuilderResource()
                     {
@@ -53,28 +54,29 @@ namespace AutoLevel
                 }
             }
 
-            public bool Rebuild()
+            public bool Rebuild(int layer)
             {
                 for (int i = 0; i < iterations; i++)
                 {
-                    if (Run(BuildersResources.Select((pair) => pair.Key)))
+                    if (Run(BuildersResources.Select((pair) => pair.Key), layer))
                         return true;
                 }
                 return false;
             }
 
-            public bool Rebuild(IEnumerable<LevelBuilder> targetBuilders)
+            public bool Rebuild(IEnumerable<LevelBuilder> targetBuilders,int layer)
             {
                 for (int i = 0; i < iterations; i++)
                 {
-                    if (Run(targetBuilders))
+                    if (Run(targetBuilders, layer))
                         return true;
                 }
                 return false;
             }
 
-            private bool Run(IEnumerable<LevelBuilder> builders)
+            private bool Run(IEnumerable<LevelBuilder> builders,int layer)
             {
+                this.layer = layer;
                 GenerateBuildersDep(builders);
 
                 cancelSource = new CancellationTokenSource();
@@ -112,9 +114,9 @@ namespace AutoLevel
                         {
                             if (!token.IsCancellationRequested)
                             {
-                                var bounds = new BoundsInt(Vector3Int.zero, builderResource.builderData.LevelData.Blocks.Size);
+                                var bounds = new BoundsInt(Vector3Int.zero, builderResource.builderData.LevelData.size);
                                 UpdateSolver(builderResource);
-                                var itr = builderResource.solver.Solve(bounds, 1, i + time);
+                                var itr = builderResource.solver.Solve(bounds, layer, 1, i + time);
 
                                 if (itr > 0)
                                 {
@@ -220,17 +222,11 @@ namespace AutoLevel
         public static bool RebuildLevelGroup( 
             IEnumerable<ILevelBuilderData> allBuilders,
             IEnumerable<BlocksRepo.Runtime> repos,
-            IEnumerable<ILevelBuilderData> targetBuilders)
+            IEnumerable<ILevelBuilderData> targetBuilders,
+            int layer)
         {
             var groupBuilder = new LevelGroupSolver(allBuilders,repos);
-            return groupBuilder.Rebuild(targetBuilders.Select((builderData)=>builderData.Builder));
-        }
-
-        public static void ClearBuild(ILevelBuilderData builderData)
-        {
-            var levelBlocks = builderData.LevelData.Blocks;
-            foreach (var index in SpatialUtil.Enumerate(levelBlocks.Size))
-                levelBlocks[index.z, index.y, index.x] = 0;
+            return groupBuilder.Rebuild(targetBuilders.Select((builderData)=>builderData.Builder), layer);
         }
 
         public static void UpdateLevelSolver(ILevelBuilderData builderData, BlocksRepo.Runtime repo, BaseLevelSolver solver)

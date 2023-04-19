@@ -65,15 +65,32 @@ namespace AutoLevel
         public void ClearGroup(int i)
         {
             foreach (var builder in builderGroups[i])
-                LevelBuilderUtlity.ClearBuild(builder);
+                builder.LevelData.ClearAllLayers();
         }
 
-        public bool Solve(int index)
+        public void ClearGroupLayer(int layer,int i)
         {
-            return groupBuilders[index].Rebuild();
+            foreach (var builder in builderGroups[i])
+                builder.LevelData.GetLayer(layer).Clear();
         }
 
-        public bool Rebuild(int index, bool[] mask)
+        public bool SolveAll(int index)
+        {
+            int layers = builderGroups[index].First().LevelData.LayersCount;
+
+            for (int i = 0; i < layers; i++)
+                if (!Solve(index, i))
+                    return false;
+
+            return true;
+        }
+
+        public bool Solve(int index,int layer)
+        {
+            return groupBuilders[index].Rebuild(layer);
+        }
+
+        public bool Rebuild(int index,int layer, bool[] mask)
         {
             var buildersData = new List<LevelBuilder>();
             int i = 0;
@@ -83,7 +100,30 @@ namespace AutoLevel
                     buildersData.Add(builderData.Builder);
             }
 
-            return groupBuilders[index].Rebuild(buildersData);
+            return groupBuilders[index].Rebuild(buildersData, layer);
+        }
+
+        public bool Rebuild(int index, bool[] mask)
+        {
+            ClearGroup(index);
+
+            var buildersData = new List<LevelBuilder>();
+            {
+                int i = 0;
+                foreach (var builderData in builderGroups[index])
+                {
+                    if (mask[i++])
+                        buildersData.Add(builderData.Builder);
+                }
+            }
+
+            var layersCount = builderGroups[index].Min((builderData) => builderData.LevelData.LayersCount);
+            for (int i = 0; i < layersCount; i++)
+            {
+                if (!groupBuilders[index].Rebuild(buildersData, i))
+                    return false;
+            }
+            return true;
         }
 
         public void Dispose()

@@ -32,7 +32,7 @@ namespace AutoLevel
         {
             using (LevelMeshBuilder mbuilder = new LevelMeshBuilder(builder.levelData, repo, partationSize))
             {
-                mbuilder.Rebuild(new BoundsInt(Vector3Int.zero, builder.levelData.bounds.size));
+                mbuilder.RebuildAll();
                 ModelExporter.ExportObject(path, mbuilder.root.gameObject);
             }
         }
@@ -41,9 +41,7 @@ namespace AutoLevel
         {
             using (var objectsBuilder = new LevelExtraObjectBuilder(builder.levelData, repo))
             {
-                var bounds = builder.levelData.bounds;
-                bounds.position = Vector3Int.zero;
-                objectsBuilder.Rebuild(bounds);
+                objectsBuilder.RebuildAll();
                 PrefabUtility.SaveAsPrefabAsset(objectsBuilder.root.gameObject, path);
             }
         }

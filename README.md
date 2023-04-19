@@ -1,4 +1,4 @@
-# Auto-Level
+# AutoLevel
 
 [![Autolevel Trailer](documentation/images/trailer.png)](https://www.youtube.com/watch?v=94toUiUJqB8 "Autolevel Trailer")
 
@@ -14,6 +14,7 @@ The target of this package is to create a procural level generator that is contr
 * Big block support
 * Fbx export
 * Multi-threaded solver (only work with constraints)
+* Layers support
 
 Complete C# source code is provided.
 
@@ -50,5 +51,4 @@ When selecting a `Block Asset,` there is an option called filling in the scene v
 * Multi-threaded solver can only give a better performance where constraints are used with a heavy load task and could yield up to 3x the original performance.
 
 ## WHATS NEXT
-* Layers
 * Fine Block connection control

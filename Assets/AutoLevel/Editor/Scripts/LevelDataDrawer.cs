@@ -1,61 +1,92 @@
 ﻿using UnityEditor;
 using UnityEngine;
 using AlaslTools;
+using System.Collections.Generic;
 
 namespace AutoLevel
 {
-    public class LevelDataDrawer : System.IDisposable
+    public class LevelDataDrawer : BaseLevelDataBuilder
     {
-        Transform root;
-        ILevelBuilderData builderData;
-        BlocksRepo.Runtime repo;
+        private List<Array3D<GameObject>> layers;
+        private List<Transform> layersRoot;
 
-        public LevelDataDrawer(BlocksRepo.Runtime repo, ILevelBuilderData builderData)
+        public LevelDataDrawer(LevelData levelData, BlocksRepo.Runtime repo)
+            : base(levelData, repo)
         {
-            this.builderData = builderData;
-            this.repo = repo;
-            Recreate();
+            root.gameObject.hideFlags = HideFlags.HideAndDontSave;
+
+            layers = new List<Array3D<GameObject>>();
+            for (int i = 0; i < levelData.LayersCount; i++)
+                layers.Add(new Array3D<GameObject>(levelData.size));
+
+            layersRoot = new List<Transform>(levelData.LayersCount);
+            for (int i = 0; i < levelData.LayersCount; i++)
+            {
+                var go = new GameObject($"layer {i}");
+                go.hideFlags = HideFlags.HideAndDontSave;
+                go.transform.SetParent(root);
+                layersRoot.Add(go.transform);
+            }
+
+            RebuildAll();
         }
 
         public void Clear()
         {
-            if (root != null)
-                Object.DestroyImmediate(root.gameObject);
+            for (int i = 0; i < levelData.LayersCount; i++)
+                ClearLayer(i);
         }
 
-        public void Recreate()
+        public void ClearLayer(int layer)
         {
-            if (repo == null)
-                return;
+            var objects = layers[layer];
 
-            Clear();
-
-            root = new GameObject("level_root").transform;
-            root.position = builderData.LevelData.position;
-            root.gameObject.hideFlags = HideFlags.HideAndDontSave;
-
-            foreach (var index in SpatialUtil.Enumerate(builderData.LevelData.bounds.size))
+            foreach (var index in SpatialUtil.Enumerate(levelData.size))
             {
-                var hash = builderData.LevelData.Blocks[index.z, index.y, index.x];
-                if (hash != 0 && repo.ContainsBlock(hash))
-                {
-                    var block = repo.GetBlockResourcesByHash(hash);
-                    if (block.mesh != null)
-                    {
-                        var go = new GameObject();
-                        go.hideFlags = HideFlags.HideAndDontSave;
-                        go.AddComponent<MeshFilter>().sharedMesh = block.mesh;
-                        go.AddComponent<MeshRenderer>().sharedMaterial = block.material;
-                        go.transform.SetParent(root.transform);
-                        go.transform.localPosition = index;
-                    }
-                }
+                var go = objects[index];
+                if (go != null)
+                    GameObjectUtil.SafeDestroy(go.gameObject);
             }
         }
 
-        public void Dispose()
+        public override void Rebuild(BoundsInt area, int layer)
         {
-            Clear();
+            var blocks = levelData.GetLayer(layer).Blocks;
+            var objects = layers[layer];
+
+            root.transform.position = levelData.bounds.position;
+
+            foreach (var index in SpatialUtil.Enumerate(area))
+            {
+                var go = objects[index];
+                if (go != null)
+                    GameObjectUtil.SafeDestroy(go);
+
+                var block = blocks[index];
+
+                if (block == 0)
+                    continue;
+
+                var res = repo.GetBlockResources(repo.GetBlockIndex(block));
+                if (res.mesh == null)
+                    continue;
+
+                if (!ShouldInclude(index, layer))
+                    continue;
+
+                go = new GameObject(res.mesh.name);
+                go.hideFlags = HideFlags.HideAndDontSave;
+                go.transform.SetParent(layersRoot[layer]);
+                go.AddComponent<MeshFilter>().sharedMesh = res.mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = res.material;
+                go.transform.localPosition = index;
+                objects[index] = go;
+            }
+        }
+
+        public override void Dispose()
+        {
+            GameObjectUtil.SafeDestroy(root.gameObject);
         }
     }
 }

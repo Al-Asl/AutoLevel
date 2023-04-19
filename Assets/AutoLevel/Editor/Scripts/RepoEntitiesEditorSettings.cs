@@ -9,7 +9,8 @@ namespace AutoLevel
     {
         None,
         Fill,
-        Connection
+        Connection,
+        Layer
     }
 
     public class RepoEntitiesEditorSettingsSO : BaseSO<RepoEntitiesEditorSettings>

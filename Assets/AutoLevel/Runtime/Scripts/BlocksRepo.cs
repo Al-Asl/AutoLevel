@@ -60,6 +60,13 @@ namespace AutoLevel
             return list;
         }
 
+        public int GetLayersCount() => GetLayersCount(GetComponentsInChildren<BlockAsset>());
+
+        private static int GetLayersCount(IEnumerable<BlockAsset> assets)
+        {
+            return BlockAsset.GetBlocksEnum(assets).Max((block) => block.layerSettings.layer) + 1;
+        }
+
         private List<string> GetBaseGroups() => new List<string>() { EMPTY_GROUP, SOLID_GROUP, BASE_GROUP };
 
         public Runtime CreateRuntime() => new Runtime(transform, GetAllGroupsNames(), GetAllWeightGroupsNames(), actionsGroups);

@@ -37,6 +37,10 @@ namespace AutoLevel
         {
             public override string Message => "the volume size is zero!";
         }
+        protected class InvalidLayerException : BaseSolverException
+        {
+            public override string Message => "the layer index is invalid!";
+        }
         protected class BuildFailedException : BaseSolverException
         {
             public SolveStage stage;
@@ -73,6 +77,9 @@ namespace AutoLevel
         protected BlocksRepo.Runtime repo;
         protected LevelData levelData;
         protected Array3D<InputWaveCell> inputWave;
+        protected LevelLayer layer;
+        protected LevelLayer preLayer;
+        protected int layerIndex;
 
         protected BoundsInt solveBounds;
 
@@ -108,7 +115,16 @@ namespace AutoLevel
             groupWeights = new List<float>();
         }
 
-        public int Solve(BoundsInt bounds, int iteration = 10, int seed = 0)
+        public bool SolveAll(int iteration = 10)
+        {
+            var bounds = new BoundsInt(Vector3Int.zero, levelData.size);
+            for (int i = 0; i < levelData.LayersCount; i++)
+                if (Solve(bounds, i, iteration) == 0)
+                    return false;
+            return true;
+        }
+
+        public int Solve(BoundsInt bounds,int layer = 0, int iteration = 10, int seed = 0)
         {
             if (repo == null)
                 throw new NoRepoException();
@@ -120,6 +136,21 @@ namespace AutoLevel
 
             if (solveBounds.size.x > size.x || solveBounds.size.y > size.y || solveBounds.size.z > size.z)
                 throw new InvalidSolveBoundException();
+
+            if (layer < 0 || layer >= levelData.LayersCount)
+                throw new InvalidLayerException();
+
+            this.layer = levelData.GetLayer(layer);
+            if (layer > 0)
+                preLayer = levelData.GetLayer(layer - 1);
+
+            this.layer.Valid = false;
+            this.layerIndex = layer;
+
+            for (int d = 0; d < 6; d++)
+                boundaries[d]?.SetLayer(layerIndex);
+
+            GenerateGroupsWeights();
 
             threadID = System.Threading.Thread.CurrentThread.ManagedThreadId;
 
@@ -155,6 +186,9 @@ namespace AutoLevel
                     Profiling.StartTimer(fill_leveldata_pk + threadID);
                     FillLevelData();
                     Profiling.LogAndRemoveTimer("time to fill level data :", fill_leveldata_pk + threadID);
+
+                    if (solveBounds.size == levelData.size)
+                        this.layer.Valid = true;
 
                     return t + 1;
                 }
@@ -218,7 +252,6 @@ namespace AutoLevel
 
             blockWeights.Clear();
             blockWeights.AddRange(repo.GetBlocksWeight());
-            GenerateGroupsWeights();
         }
 
         public void SetlevelData(LevelData levelData)
@@ -265,8 +298,6 @@ namespace AutoLevel
                 foreach (var block in wgBlocks)
                     blockWeights[block] = newValue;
             }
-
-            GenerateGroupsWeights();
         }
 
         private void GenerateGroupsWeights()
@@ -277,7 +308,7 @@ namespace AutoLevel
 
             for (int i = 0; i < repo.GroupsCount; i++)
             {
-                var groupRange = repo.GetGroupRange(i);
+                var groupRange = repo.GetGroupRange(i, layerIndex);
                 var weight = 0f;
                 for (int j = groupRange.x; j < groupRange.y; j++)
                     weight += blockWeights[j];
@@ -370,9 +401,12 @@ namespace AutoLevel
             , List<int> rlist, HashSet<int> rset)
         {
             Vector3Int nli = li + delta[d];
-            var nlc = levelData.Blocks[nli.z, nli.y, nli.x];
+            var nlc = layer.Blocks[nli.z, nli.y, nli.x];
             if (nlc == 0)
             {
+                if (layerIndex != 0)
+                    return;
+                    
                 var iwc = inputWave == null ? InputWaveCell.AllGroups : inputWave[li.z, li.y, li.x];
                 if (iwc.ContainAll)
                     return;
@@ -381,6 +415,7 @@ namespace AutoLevel
             }
             else
                 ValidateWaveSide(li, nlc, d, rset);
+
 #if AUTOLEVEL_DEBUG
             var index = li - solveBounds.min;
             if (EnumareteBlocksInWaveCell(index).Count() == 0)
@@ -410,12 +445,13 @@ namespace AutoLevel
             for (int i = 0; i < rlist.Count; i++)
                 Ban(new Possibility(index, rlist[i]));
         }
-        private void ValidateWaveSide(Vector3Int lc, int nlc, int d, HashSet<int> rset)
-        {
-            var index = lc - solveBounds.min;
 
-            nlc = repo.GetBlockIndex(nlc);
-            var neighborConn = repo.Connections[opposite[d]][nlc];
+        private void ValidateWaveSide(Vector3Int li, int nb, int d, HashSet<int> rset)
+        {
+            var index = li - solveBounds.min;
+
+            nb = repo.GetBlockIndex(nb);
+            var neighborConn = repo.Connections[opposite[d]][nb];
 
             rset.Clear();
             foreach (var b in EnumareteBlocksInWaveCell(index))
@@ -437,7 +473,7 @@ namespace AutoLevel
                     continue;
 
                 var groupCounter_a = groupCounter[group_a];
-                var groupRange = repo.GetGroupRange(group_a);
+                var groupRange = repo.GetGroupRange(group_a, layerIndex);
 
                 for (int group_b = 0; group_b < repo.GroupsCount; group_b++)
                 {
@@ -448,6 +484,22 @@ namespace AutoLevel
                     for (int i = groupRange.x; i < groupRange.y; i++)
                         output[i] += counter[i - groupRange.x];
                 }
+            }
+        }
+
+        protected void CountConnections(IEnumerable<int> cellA, IEnumerable<int> cellB, int d, int[] output)
+        {
+            var connections = repo.Connections[d];
+            var setB = new HashSet<int>(cellB);
+
+            foreach(var blockA in cellA)
+            {
+                var conn = connections[blockA];
+                int counter = 0;
+                foreach (var item in conn)
+                    if (setB.Contains(item))
+                        counter++;
+                output[blockA] = counter;
             }
         }
 
@@ -518,8 +570,8 @@ namespace AutoLevel
                     }
                     else
                     {
-                        var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP)).x;
-                        var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP)).x;
+                        var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP), layerIndex).x;
+                        var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP), layerIndex).x;
 
                         if (block == solid)
                             poss.name = BlocksRepo.SOLID_GROUP;

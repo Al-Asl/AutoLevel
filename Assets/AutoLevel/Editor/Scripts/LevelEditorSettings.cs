@@ -18,7 +18,24 @@ namespace AutoLevel
         }
 
         private SO settingsSO;
-        private LevelEditorSettings.Settings settings => settingsSO.settings;
+        public LevelEditorSettings.Settings Settings => settingsSO.settings;
+
+        public void Draw()
+        {
+            EditorGUI.BeginChangeCheck();
+            var settingsExpand = settingsSO.GetFieldExpand(nameof(SO.settings));
+            settingsExpand = EditorGUILayout.BeginFoldoutHeaderGroup(settingsExpand, "Settings");
+
+            if (EditorGUI.EndChangeCheck())
+                settingsSO.SetFieldExpand(nameof(SO.settings), settingsExpand);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            if (settingsExpand)
+                OnInspectorGUI();
+            GUILayout.EndVertical();
+
+            EditorGUILayout.EndFoldoutHeaderGroup();
+        }
 
         private void OnEnable()
         {
@@ -36,16 +53,12 @@ namespace AutoLevel
 
             EditorGUI.BeginChangeCheck();
 
-            settings.GroupsToggle = GUILayout.Toggle(settings.GroupsToggle, "Show Groups", GUI.skin.button);
+            Settings.GroupsToggle = GUILayout.Toggle(Settings.GroupsToggle, "Show Groups", GUI.skin.button);
 
             EditorGUILayout.Space();
 
-            settings.MaxIterations = EditorGUILayout.IntField("Max Iterations", settings.MaxIterations);
-            settings.OverrideSolverSize = EditorGUILayout.Toggle("Override Solver Size", settings.OverrideSolverSize);
-            if (settings.OverrideSolverSize)
-                settings.SolverSize = EditorGUILayout.IntField("Solver Size", settings.SolverSize);
-
-            settings.ExportSize = EditorGUILayout.IntField("Export Size", settings.ExportSize);
+            Settings.MaxIterations = EditorGUILayout.IntField("Max Iterations", Settings.MaxIterations);
+            Settings.ExportSize = EditorGUILayout.IntField("Export Size", Settings.ExportSize);
 
             GUILayout.EndVertical();
 
@@ -79,8 +92,6 @@ namespace AutoLevel
         {
             GroupsToggle = false,
             MaxIterations = 10,
-            OverrideSolverSize = false,
-            SolverSize = 5,
             ExportSize = 5,
         };
 
@@ -90,8 +101,6 @@ namespace AutoLevel
             public bool GroupsToggle;
             [Space]
             public int MaxIterations;
-            public bool OverrideSolverSize;
-            public int SolverSize;
             [Space]
             public int ExportSize;
         }

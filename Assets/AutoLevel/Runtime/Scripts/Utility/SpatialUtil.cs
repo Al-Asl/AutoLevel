@@ -2,6 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 namespace AutoLevel
 {
@@ -94,6 +97,46 @@ namespace AutoLevel
             {
                 index = new Vector3Int(-1, 0, 0);
             }
+        }
+
+        public static void ParallelFor(Vector3Int size, Action<Vector3Int> excute)
+        {
+            ParallelFor(Vector3Int.zero, size, excute);
+        }
+
+        public static void ParallelFor(Vector3Int start, Vector3Int end,Action<Vector3Int> excute)
+        {
+            Vector3Int size = end - start;
+            int sizexy = size.x * size.y;
+            var res = Parallel.For(0, sizexy * size.z, (i) =>
+            {
+                excute(Index1DTo3D(i,size.x,sizexy));
+            });
+        }
+
+        public static int Index3DTo1D(Vector3Int i3, Vector3Int size)
+        {
+            return Index3DTo1D(i3, size.x, size.x * size.y);
+        }
+
+        public static int Index3DTo1D(Vector3Int i3, int sizex, int sizexy)
+        {
+            return i3.x + i3.y * sizex + i3.z * sizexy;
+        }
+
+        public static Vector3Int Index1DTo3D(int i, Vector3Int size)
+        {
+            return Index1DTo3D(i, size.x, size.x * size.y);
+        }
+
+        public static Vector3Int Index1DTo3D(int i, int sizex, int sizexy)
+        {
+            Vector3Int index = default;
+            index.z = i / sizexy;
+            int t = i - index.z * sizexy;
+            index.y = t / sizex;
+            index.x = t % sizex;
+            return index;
         }
 
         public static IEnumerable<Vector3Int> Enumerate(Vector3Int start, Vector3Int end)

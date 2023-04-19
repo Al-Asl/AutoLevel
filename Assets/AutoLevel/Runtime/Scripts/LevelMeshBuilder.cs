@@ -42,7 +42,7 @@ namespace AutoLevel
             {
                 var go = new GameObject($"group {index}");
                 go.transform.SetParent(root);
-                go.transform.localPosition = index * tilesPerGroup + levelData.bounds.position;
+                go.transform.localPosition = index * tilesPerGroup;
                 var mesh = new Mesh();
                 go.AddComponent<MeshFilter>().mesh = mesh;
                 var group = new TileGroup()

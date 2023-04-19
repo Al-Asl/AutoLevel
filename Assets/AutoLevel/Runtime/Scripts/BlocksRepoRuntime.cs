@@ -309,8 +309,6 @@ namespace AutoLevel
             private List<int> groupStartIndex;
 
             private List<float> weights;
-            private List<float> baseWeights;
-            private List<float> groupWeights;
             private List<int>[] blocksPerWeightGroup;
 
             private BiDirectionalList<string> groups;
@@ -333,7 +331,7 @@ namespace AutoLevel
                 var template = gameObjecstsTemplates[index];
                 return template != null ? template.Create() : null;
             }
-            public float GetBlockWeight(int blockIndex) => weights[blockIndex];
+            public IEnumerable<float> GetBlocksWeight() => weights;
 
             /// Groups ///
             public int GroupsCount => groups.Count;
@@ -342,7 +340,6 @@ namespace AutoLevel
             public int GetGroupHash(int index) => groups[index].GetHashCode();
             public int GetGroupIndex(string name) => groups.GetIndex(name);
             public int GetGroupIndex(int hash) => groups.GetList().FindIndex((e) => e.GetHashCode() == hash);
-            public float GetGroupWeight(int index) => groupWeights[index];
 
             /// Weight Groups ///
             public int WeightGroupsCount => weightGroups.Count;
@@ -350,6 +347,7 @@ namespace AutoLevel
             public bool ContainsWeightGroup(string name) => weightGroups.GetList().Contains(name);
             public int GetWeightGroupHash(int index) => weightGroups[index].GetHashCode();
             public int GetWeightGroupIndex(string name) => weightGroups.GetIndex(name);
+            public IEnumerable<int> GetBlocksPerWeightGroup(int group) => blocksPerWeightGroup[group];
 
             public GroupsEnumerator GetGroupsEnumerable(InputWaveCell wave) => new GroupsEnumerator(wave, this);
 
@@ -372,26 +370,6 @@ namespace AutoLevel
                 GenerateBlockData(BlockConnections);
                 GenerateConnections(BlockConnections);
                 GenerateGroupCounter();
-                GenerateGroupsWeights();
-            }
-
-            public void OverrideGroupsWeights(List<float> groupOverride)
-            {
-                for (int i = 0; i < weights.Count; i++)
-                    weights[i] = baseWeights[i];
-
-                for (int i = 0; i < WeightGroupsCount; i++)
-                {
-                    var newValue = groupOverride[i];
-                    if (newValue < 0)
-                        continue;
-
-                    var wgBlocks = blocksPerWeightGroup[i];
-                    for (int j = 0; j < wgBlocks.Count; j++)
-                        weights[wgBlocks[j]] = newValue;
-                }
-
-                GenerateGroupsWeights();
             }
 
             private void GenerateBlockData(List<ConnectionsIds> BlockConnections)
@@ -399,7 +377,7 @@ namespace AutoLevel
                 Resources = new List<BlockResources>();
                 gameObjecstsTemplates = new List<BlockGOTemplate>();
                 BlocksHash = new BiDirectionalList<int>();
-                baseWeights = new List<float>();
+                weights = new List<float>();
                 blocksPerWeightGroup = new List<int>[WeightGroupsCount];
                 for (int i = 0; i < WeightGroupsCount; i++)
                     blocksPerWeightGroup[i] = new List<int>();
@@ -453,11 +431,10 @@ namespace AutoLevel
                     gameObjecstsTemplates.Add(templateGenerator.Generate(block.gameObject,block.actions));
 
                     BlockConnections.Add(block.compositeIds);
-                    baseWeights.Add(block.weight);
+                    weights.Add(block.weight);
                     blocksPerWeightGroup[wgHashToIndex[block.weightGroup]].Add(i);
                 }
 
-                weights = new List<float>(baseWeights);
             }
             private void GenerateConnections(List<ConnectionsIds> BlockConnections)
             {
@@ -510,21 +487,7 @@ namespace AutoLevel
 
                 Profiling.LogAndRemoveTimer("time to generate groups counter ", groups_counter_pk);
             }
-            private void GenerateGroupsWeights()
-            {
-                if (groupWeights == null)
-                    groupWeights = new List<float>();
-                groupWeights.Clear();
-
-                for (int i = 0; i < GroupsCount; i++)
-                {
-                    var groupRange = GetGroupRange(i);
-                    var weight = 0f;
-                    for (int j = groupRange.x; j < groupRange.y; j++)
-                        weight += weights[j];
-                    groupWeights.Add(weight);
-                }
-            }
+            
             private Dictionary<int, int> HashToIndexLookup<T>(IEnumerable<T> list)
             {
                 var result = new Dictionary<int, int>();

@@ -496,7 +496,7 @@ namespace AutoLevel
                 return this;
             }
 
-            public DrawCommand Draw(bool now = true)
+            public DrawCommand Draw(bool now = true, int pass = 0)
             {
                 material.SetColor("_Color", color);
                 material.SetTexture("_MainTex", texture);
@@ -505,7 +505,7 @@ namespace AutoLevel
                 {
                     if (now)
                     {
-                        material.SetPass(0);
+                        material.SetPass(pass);
                         Graphics.DrawMeshNow(mesh, matrix);
                     }
                     else

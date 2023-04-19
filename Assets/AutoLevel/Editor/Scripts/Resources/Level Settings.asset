@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Level Settings
   m_EditorClassIdentifier: 
   settings:
-    GroupsToggle: 1
+    GroupsToggle: 0
     MaxIterations: 10
     ExportSize: 5

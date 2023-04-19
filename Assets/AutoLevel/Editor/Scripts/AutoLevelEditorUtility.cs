@@ -1,10 +1,11 @@
-﻿using System.IO;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEditor.Formats.Fbx.Exporter;
 using UnityEngine;
 
 namespace AutoLevel
 {
+    using static Directions;
+
     public class AutoLevelEditorUtility
     {
         public static void ExportMesh(LevelBuilder builder, string path)
@@ -44,6 +45,16 @@ namespace AutoLevel
                 objectsBuilder.Rebuild(bounds);
                 PrefabUtility.SaveAsPrefabAsset(objectsBuilder.root.gameObject, path);
             }
+        }
+
+        public static bool SideCullTest(Camera camera, Vector3 pos, int side)
+        {
+            var vp = camera.projectionMatrix * camera.worldToCameraMatrix;
+            var c = vp.MultiplyPoint(pos);
+            var u = vp.MultiplyPoint(pos + directionsU[side]);
+            var v = vp.MultiplyPoint(pos + directionsV[side]);
+            Vector3 clipSpaceNormal = Vector3.Cross((u - c), (v - c));
+            return clipSpaceNormal.z >= 0;
         }
     }
 }

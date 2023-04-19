@@ -53,12 +53,16 @@ namespace AutoLevel
         private Vector3Int index;
         private int visibilityLevel;
 
+        private Material outlineMat;
+
         #region Callback
 
         protected override void OnEnable()
         {
             blockAsset = new SO(target);
             visibilityLevel = data.Size.y;
+
+            outlineMat = new Material(Shader.Find("Hidden/AutoLevel/Outline"));
 
             base.OnEnable();
         }
@@ -67,6 +71,8 @@ namespace AutoLevel
         {
             Tools.current = current;
             blockAsset.Dispose();
+
+            DestroyImmediate(outlineMat);
 
             base.OnDisable();
         }
@@ -187,6 +193,8 @@ namespace AutoLevel
             HandleTool();
 
             DoContextMenu();
+
+            DrawLinesToCellsBlocks();
         }
 
         #endregion
@@ -249,7 +257,7 @@ namespace AutoLevel
             var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
             if (visibilityBounds.IntersectRay(ray, out var t))
             {
-                var index = MathUtility.FloorToInt(ray.GetPoint(t) - transform.position);
+                var index = Vector3Int.FloorToInt(ray.GetPoint(t) - transform.position);
                 index = Vector3Int.Max(Vector3Int.zero, index);
                 index = Vector3Int.Min(new Vector3Int(data.Size.x, visibilityLevel, data.Size.z) - Vector3Int.one, index);
 
@@ -381,7 +389,7 @@ namespace AutoLevel
 
             if (current == Tool.Scale)
             {
-                var size = MathUtility.RoundToInt(
+                var size = Vector3Int.RoundToInt(
                 Handles.ScaleHandle(data.Size,
                 transform.position, Quaternion.identity, 2f));
                 size = Vector3Int.Max(Vector3Int.one, size);
@@ -451,6 +459,49 @@ namespace AutoLevel
                     HandleUtility.AddControl(id, 0);
                 }
             }
+        }
+
+        private void DrawLinesToCellsBlocks()
+        {
+            Handles.color = Color.cyan;
+            Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
+
+            foreach (var index in SpatialUtil.Enumerate(data.Size))
+            {
+                var block = data[index];
+                if (block.blockAsset != null && block.gameObject.activeInHierarchy)
+                {
+                    Handles.DrawLine(
+                        GetPositionFromBlockAsset(block) + Vector3.one * 0.5f,
+                        GetPositionFromBigBlockAsset(block) + Vector3.one * 0.5f, 3);
+                }
+
+            }
+
+            Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+
+            foreach (var index in SpatialUtil.Enumerate(data.Size))
+            {
+                var block = data[index];
+                if (block.blockAsset != null && block.gameObject.activeInHierarchy)
+                    DrawOutline(block);
+            }
+        }
+
+        private void DrawOutline(AssetBlock block)
+        {
+            var pos = GetPositionFromBlockAsset(block) + Vector3.one * 0.5f;
+
+            GetDrawCmd().
+                SetPrimitiveMesh(PrimitiveType.Cube).
+                SetMaterial(outlineMat).
+                Scale(0.95f).Move(pos).Draw();
+
+            GetDrawCmd().
+                SetPrimitiveMesh(PrimitiveType.Cube).
+                SetMaterial(outlineMat).
+                SetColor(Color.cyan).
+                Move(pos).Draw(pass: 1);
         }
 
         private Vector3 GetCellCenterPosition(Vector3Int index)

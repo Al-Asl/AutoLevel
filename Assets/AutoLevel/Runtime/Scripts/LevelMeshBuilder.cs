@@ -23,7 +23,7 @@ namespace AutoLevel
         BlocksRepo.Runtime blockRepo, int tilesPerGroup = 5) : base(levelData, blockRepo)
         {
             this.tilesPerGroup = tilesPerGroup;
-            var groupsSize = MathUtility.CeilToInt(new Vector3(
+            var groupsSize = Vector3Int.CeilToInt(new Vector3(
                 levelData.bounds.size.x * 1f / tilesPerGroup,
                 levelData.bounds.size.y * 1f / tilesPerGroup,
                 levelData.bounds.size.z * 1f / tilesPerGroup));

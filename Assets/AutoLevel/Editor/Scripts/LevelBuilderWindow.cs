@@ -6,6 +6,13 @@ using System.IO;
 
 namespace AutoLevel
 {
+    public class EditorLevelGroupManager : BaseLevelGroupManager<LevelBuilderEditor.SO>
+    {
+        public EditorLevelGroupManager(bool useSolverMT) : base(useSolverMT) { }
+
+        protected override LevelBuilderEditor.SO GetBuilderData(LevelBuilder builder)
+        => new LevelBuilderEditor.SO(builder);
+    }
 
     public class LevelBuilderWindow : EditorWindow
     {
@@ -17,12 +24,13 @@ namespace AutoLevel
 
         private LevelEditorSettingsEditor SettingsEditor;
 
-        private LevelGroupManager<LevelBuilderEditor.SO> groupManager;
+        private EditorLevelGroupManager groupManager;
         private List<LevelDataDrawer> levelDataDrawers = new List<LevelDataDrawer>();
         private List<InputWaveDrawer> inputWaveDrawers = new List<InputWaveDrawer>();
 
         private Vector2 scrollPos;
         private int selectedGroup = -1;
+        private bool useSolverMT;
 
         private string result = "";
 
@@ -36,7 +44,7 @@ namespace AutoLevel
             var settings = LevelEditorSettings.GetSettings();
             SettingsEditor = (LevelEditorSettingsEditor)Editor.CreateEditor(settings, typeof(LevelEditorSettingsEditor));
 
-            groupManager = new LevelGroupManager<LevelBuilderEditor.SO>((builder) => new LevelBuilderEditor.SO(builder));
+            groupManager = new EditorLevelGroupManager(false);
 
             builderToggles = new bool[groupManager.GroupCount][];
             for (int i = 0; i < groupManager.GroupCount; i++)
@@ -131,6 +139,13 @@ namespace AutoLevel
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.EndVertical();
+
+            if (GUILayout.Toggle(useSolverMT, "Use Multi Thread", GUI.skin.button) != useSolverMT)
+            {
+                useSolverMT = !useSolverMT;
+                groupManager.Dispose();
+                groupManager = new EditorLevelGroupManager(useSolverMT);
+            }
 
             EditorGUILayout.BeginHorizontal();
 

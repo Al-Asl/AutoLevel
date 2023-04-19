@@ -25,6 +25,11 @@ namespace AutoLevel
 
             for (int i = 0; i < actions.Count; i++)
                 ActionsUtility.ApplyAction(m, actions[i]);
+
+#if AUTOLEVEL_DEBUG
+            m.name += ActionsUtility.GetActionPrefix(actions);
+#endif
+
             m.RecalculateBounds();
             m.RecalculateTangents();
 

@@ -106,7 +106,7 @@ MonoBehaviour:
       backward: 0
       right: 5
       up: 0
-      forward: 0
+      forward: 2
     fill: 243
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}

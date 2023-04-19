@@ -105,6 +105,7 @@ namespace AutoLevel
                     {
                         var builderResource = BuildersResources[toBuild.Pop()];
                         var token = cancelSource.Token;
+                        var time = (int)(DateTime.Now.Ticks % int.MaxValue);
 
                         tasks[i] = Task.Run(() =>
                         {
@@ -112,7 +113,7 @@ namespace AutoLevel
                             {
                                 var bounds = new BoundsInt(Vector3Int.zero, builderResource.builderData.LevelData.Blocks.Size);
                                 UpdateSolver(builderResource);
-                                var itr = builderResource.solver.Solve(bounds, 1, i);
+                                var itr = builderResource.solver.Solve(bounds, 1, i + time);
 
                                 if (itr > 0)
                                 {
@@ -197,6 +198,7 @@ namespace AutoLevel
                 if (buildersDep.Count == 0)
                     return;
 
+                //TODO : use merge sort for linked list
                 var builders = buildersDep.ToList();
                 builders.Sort((a, b) => a.Item2.Count.CompareTo(b.Item2.Count));
                 buildersDep = new LinkedList<(LevelBuilder, HashSet<LevelBuilder>)>(builders);

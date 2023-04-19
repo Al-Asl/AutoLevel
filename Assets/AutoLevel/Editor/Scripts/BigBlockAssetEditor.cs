@@ -22,8 +22,14 @@ namespace AutoLevel
 
         public class SO : BaseSO<BigBlockAsset>
         {
+            public bool overrideGroup;
+            public int group;
+
+            public bool overrideWeightGroup;
+            public int weightGroup;
+
             public List<int> actionsGroups;
-            public Array3D<AssetBlock> data;
+            public Array3D<SList<AssetBlock>> data;
 
             public SO(SerializedObject serializedObject) : base(serializedObject) { }
             public SO(Object target) : base(target) { }
@@ -31,7 +37,7 @@ namespace AutoLevel
 
         private SO blockAsset;
         private Transform transform => blockAsset.target.transform;
-        private Array3D<AssetBlock> data => blockAsset.data;
+        private Array3D<SList<AssetBlock>> data => blockAsset.data;
         private List<int> actionsGroups => blockAsset.actionsGroups;
         private Bounds bounds => new Bounds() { min = transform.position, max = transform.position + data.Size };
         private Bounds visibilityBounds => new Bounds() { min = transform.position, max = transform.position + new Vector3(data.Size.x, visibilityLevel, data.Size.z) };
@@ -53,18 +59,14 @@ namespace AutoLevel
         private Vector3Int index;
         private int visibilityLevel;
 
-        private Material outlineMat;
-
         #region Callback
 
         protected override void OnEnable()
         {
+            base.OnEnable();
+
             blockAsset = new SO(target);
             visibilityLevel = data.Size.y;
-
-            outlineMat = new Material(Shader.Find("Hidden/AutoLevel/Outline"));
-
-            base.OnEnable();
         }
 
         protected override void OnDisable()
@@ -72,23 +74,23 @@ namespace AutoLevel
             Tools.current = current;
             blockAsset.Dispose();
 
-            DestroyImmediate(outlineMat);
-
             base.OnDisable();
         }
 
         protected override void Initialize()
         {
             if (data.Size.x < 0 || data.Size.y < 0 || data.Size.z < 0)
-            {
-                data.Resize(Vector3Int.Max(Vector3Int.one, data.Size));
-                blockAsset.ApplyField(nameof(SO.data));
-            }
+                DataResize(Vector3Int.one);
 
             actionsList = new HashedFlagList(
                 repo.GetActionsGroupsNames(),
                 actionsGroups,
                 () => blockAsset.ApplyField(nameof(SO.actionsGroups)));
+
+            if(GetGroupIndex(blockAsset.group) == -1)
+                blockAsset.group = allGroups[0].GetHashCode();
+            if (GetWeightGroupIndex(blockAsset.weightGroup) == -1)
+                blockAsset.weightGroup = allWeightGroups[0].GetHashCode();
 
             GenerateConnections(activeConnections);
         }
@@ -99,6 +101,44 @@ namespace AutoLevel
         {
             EditorGUILayout.Space();
 
+            EditorGUI.BeginChangeCheck();
+
+            GUILayout.BeginHorizontal();
+
+            blockAsset.overrideGroup = GUILayout.Toggle(blockAsset.overrideGroup, "Override Group", GUI.skin.button , GUILayout.Width(150));
+
+            if(blockAsset.overrideGroup)
+            {
+                int group = GetGroupIndex(blockAsset.group);
+                group = EditorGUILayout.Popup("", group, allGroups);
+                blockAsset.group = allGroups[group].GetHashCode();
+            }
+
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+
+            blockAsset.overrideWeightGroup = GUILayout.Toggle(blockAsset.overrideWeightGroup, "Override Weight Group", GUI.skin.button, GUILayout.Width(150));
+
+            if(blockAsset.overrideWeightGroup)
+            {
+                int weightGroup = GetWeightGroupIndex(blockAsset.weightGroup);
+                weightGroup = EditorGUILayout.Popup("", weightGroup, allWeightGroups);
+                blockAsset.weightGroup = allWeightGroups[weightGroup].GetHashCode();
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                blockAsset.ApplyField(nameof(SO.overrideGroup));
+                blockAsset.ApplyField(nameof(SO.group));
+                blockAsset.ApplyField(nameof(SO.overrideWeightGroup));
+                blockAsset.ApplyField(nameof(SO.weightGroup));
+            }
+
+            EditorGUILayout.Space();
+
             actionsList.Draw(actionsGroups);
 
             EditorGUILayout.Space();
@@ -106,11 +146,7 @@ namespace AutoLevel
             EditorGUI.BeginChangeCheck();
             var size = EditorGUILayout.Vector3IntField("Size", data.Size);
             if (EditorGUI.EndChangeCheck())
-            {
-                data.Resize(Vector3Int.Max(Vector3Int.one, size));
-                blockAsset.ApplyField(nameof(SO.data));
-                SceneView.RepaintAll();
-            }
+                DataResize(size);
 
             EditorGUILayout.Space();
 
@@ -120,25 +156,27 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            EditorGUI.BeginDisabledGroup(true);
-
-            EditorGUI.indentLevel += 1;
-
-            var block = data[index];
-            EditorGUILayout.ObjectField("Asset", block.blockAsset, typeof(BlockAsset), true);
-            EditorGUILayout.IntField("Variant", block.VariantIndex);
-
-            EditorGUI.indentLevel -= 1;
-
-            EditorGUI.EndDisabledGroup();
-
-            if (GUILayout.Button("Remove"))
+            var list = data[index];
+            foreach (var block in list)
             {
-                var b = data[index];
-                DetachBlock(b);
+                EditorGUI.indentLevel += 1;
 
-                data[index] = new AssetBlock();
-                blockAsset.ApplyField(nameof(SO.data));
+                EditorGUILayout.BeginHorizontal();
+
+                EditorGUI.BeginDisabledGroup(true);
+                var preWidth = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = 70;
+                EditorGUILayout.ObjectField("Variant", block.blockAsset, typeof(BlockAsset), true);
+                EditorGUIUtility.labelWidth = 0;
+                EditorGUILayout.IntField("", block.VariantIndex);
+                EditorGUIUtility.labelWidth = preWidth;
+                EditorGUI.EndDisabledGroup();
+
+                if (GUILayout.Button("x", GUILayout.Width(25)))
+                    DetachBlock(block);
+
+                EditorGUILayout.EndHorizontal();
+                EditorGUI.indentLevel -= 1;
             }
 
             EditorGUILayout.Space();
@@ -167,12 +205,14 @@ namespace AutoLevel
             if (cancelDown)
                 connecting = false;
 
-            DrawAssetsBlocks(activeRepoEntities);
+            DrawAssetsBlocks();
 
             if (connecting)
                 DrawAssetsBlocksSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
             else
-                DrawAssetsButtonsSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
+                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target));
+
+            DrawLinesToCellsBlocks();
 
             DrawConnections(activeConnections);
 
@@ -193,8 +233,6 @@ namespace AutoLevel
             HandleTool();
 
             DoContextMenu();
-
-            DrawLinesToCellsBlocks();
         }
 
         #endregion
@@ -295,7 +333,7 @@ namespace AutoLevel
             , 1f);
 
             int[] sides = GetCellFillSides(index);
-            foreach (var blockItem in AssetsBlocksIt(activeRepoEntities.Where((e) => e != blockAsset.target)))
+            foreach (var blockItem in GetBlocksIt(AssetType.BlockAsset))
             {
                 var draw = true;
                 for (int d = 0; d < 6; d++)
@@ -315,17 +353,7 @@ namespace AutoLevel
                         var block = blockItem.Item1;
 
                         DetachBlock(block);
-                        if (data[index].blockAsset != null)
-                            DetachBlock(data[index]);
-
-                        data[index] = block;
-                        blockAsset.ApplyField(nameof(SO.data));
-
-                        using (var asset = new BlockAssetEditor.SO(block.blockAsset))
-                        {
-                            asset.variants[block.VariantIndex].bigBlock = blockAsset.target;
-                            asset.ApplyField(nameof(BlockAssetEditor.SO.variants));
-                        }
+                        AttachBlock(index,block);
 
                         editMode = EditMode.EditCell;
                         Repaint();
@@ -342,11 +370,11 @@ namespace AutoLevel
                 var i = index + delta[d];
                 if (dataBounds.Contains(i))
                 {
-                    var block = data[i];
-                    if (block.blockAsset == null)
+                    var list = data[i];
+                    if (list.IsEmpty)
                         sides[d] = -1;
                     else
-                        sides[d] = FillUtility.GetSide(block.fill, opposite[d]);
+                        sides[d] = FillUtility.GetSide(list[0].fill, opposite[d]);
                 }
                 else
                     sides[d] = -1;
@@ -359,8 +387,8 @@ namespace AutoLevel
         {
             if (connecting)
                 DoSideConnection(
-                    new BlockSide(data[connectingIndex], connectingDir),
-                    GetPositionFromBigBlockAsset(data[connectingIndex]),
+                    new BlockSide(data[connectingIndex][0], connectingDir),
+                    GetPositionFromBigBlockAsset(data[connectingIndex][0]),
                     () =>
                     {
                         connecting = false;
@@ -371,7 +399,7 @@ namespace AutoLevel
                 {
                     if (BlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
                     {
-                        connectingIndex = GetIndexInBigBlock((AssetBlock)sideItem.Item1.block);
+                        connectingIndex = GetIndexInBigBlock((AssetBlock)sideItem.Item1.block).Item1;
                         connectingDir = sideItem.Item1.d;
                         connecting = true;
                     }
@@ -394,19 +422,8 @@ namespace AutoLevel
                 transform.position, Quaternion.identity, 2f));
                 size = Vector3Int.Max(Vector3Int.one, size);
 
-                foreach (var index in SpatialUtil.Enumerate(data.Size))
-                {
-                    var block = data[index];
-                    if (block.blockAsset != null &&
-                        (index.x >= size.x || index.y >= size.y || index.z >= size.z))
-                        DetachBlock(block);
-                }
-
                 if (size != data.Size)
-                {
-                    data.Resize(size);
-                    blockAsset.ApplyField(nameof(SO.data));
-                }
+                    DataResize(size);
             }
         }
 
@@ -463,45 +480,18 @@ namespace AutoLevel
 
         private void DrawLinesToCellsBlocks()
         {
-            Handles.color = Color.cyan;
-            Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
-
             foreach (var index in SpatialUtil.Enumerate(data.Size))
             {
-                var block = data[index];
-                if (block.blockAsset != null && block.gameObject.activeInHierarchy)
+                foreach(var block in data[index])
                 {
-                    Handles.DrawLine(
-                        GetPositionFromBlockAsset(block) + Vector3.one * 0.5f,
-                        GetPositionFromBigBlockAsset(block) + Vector3.one * 0.5f, 3);
+                    if (block.gameObject.activeInHierarchy)
+                    {
+                        DrawBlockToBigBlockConnection(block);
+                        if(DoBlockDetachButton(block))
+                            blockAsset.Update();
+                    }
                 }
-
             }
-
-            Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
-
-            foreach (var index in SpatialUtil.Enumerate(data.Size))
-            {
-                var block = data[index];
-                if (block.blockAsset != null && block.gameObject.activeInHierarchy)
-                    DrawOutline(block);
-            }
-        }
-
-        private void DrawOutline(AssetBlock block)
-        {
-            var pos = GetPositionFromBlockAsset(block) + Vector3.one * 0.5f;
-
-            GetDrawCmd().
-                SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(outlineMat).
-                Scale(0.95f).Move(pos).Draw();
-
-            GetDrawCmd().
-                SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(outlineMat).
-                SetColor(Color.cyan).
-                Move(pos).Draw(pass: 1);
         }
 
         private Vector3 GetCellCenterPosition(Vector3Int index)
@@ -510,22 +500,36 @@ namespace AutoLevel
         }
         private void DetachBlock(AssetBlock block)
         {
-            if (block.bigBlock == null)
-                return;
+            DetachFromBigBlock(block);
+            blockAsset.Update();
+        }
+        private void AttachBlock(Vector3Int index,AssetBlock block)
+        {
+            AttachToBigBlock(index, blockAsset.target, block);
 
-            using (var asset = new SO(block.bigBlock))
+            var list = blockAsset.target.data[index];
+            if (list.Count > 1)
             {
-                asset.data[GetIndexInBigBlock(block)] = new AssetBlock();
-                asset.ApplyField(nameof(SO.data));
-            }
-
-            using (var asset = new BlockAssetEditor.SO(block.blockAsset))
-            {
-                asset.variants[block.VariantIndex].bigBlock = null;
-                asset.ApplyField(nameof(BlockAssetEditor.SO.variants));
+                foreach(var d in BigBlockExtSideIt(blockAsset.target,index))
+                    WriteBlockSide(block, d, list[0].baseIds[d]);
             }
 
             blockAsset.Update();
+        }
+
+        private void DataResize(Vector3Int size)
+        {
+            foreach (var index in SpatialUtil.Enumerate(data.Size))
+                foreach (var block in data[index])
+                {
+                    if (index.x >= size.x || index.y >= size.y || index.z >= size.z)
+                        DetachBlock(block);
+                }
+            data.Resize(Vector3Int.Max(Vector3Int.one, size));
+            foreach (var index in SpatialUtil.Enumerate(data.Size))
+                if (data[index] == null) data[index] = new SList<AssetBlock>();
+            blockAsset.ApplyField(nameof(SO.data));
+            SceneView.RepaintAll();
         }
     }
 

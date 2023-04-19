@@ -448,7 +448,7 @@ MonoBehaviour:
       backward: 0
       right: 0
       up: 0
-      forward: 11
+      forward: 5
     fill: 213
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -460,7 +460,7 @@ MonoBehaviour:
       backward: 0
       right: 0
       up: 0
-      forward: 11
+      forward: 5
     fill: 234
     weight: 1
     position_editor_only: {x: 4, y: 0, z: 0}
@@ -997,33 +997,39 @@ MonoBehaviour:
   data:
     size: {x: 1, y: 3, z: 3}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1101219164755673211}
-      hashCode: 2078597118
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1342827960227684306}
-      hashCode: 257331617
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8870684433003001042}
-      hashCode: -291285452
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 9124626599422105080}
-      hashCode: 851092686
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 3978145089386970837}
-      hashCode: -507699927
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 144323326237393780}
-      hashCode: -1687995305
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4933066781100704350}
-      hashCode: -779582622
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8611773156723678380}
-      hashCode: 634773507
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1101219164755673211}
+        hashCode: 366157080
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1342827960227684306}
+        hashCode: -308409346
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8870684433003001042}
+        hashCode: 1579750023
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 9124626599422105080}
+        hashCode: 223400027
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 3978145089386970837}
+        hashCode: 1544571704
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 144323326237393780}
+        hashCode: 337102154
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4933066781100704350}
+        hashCode: 1693521863
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8611773156723678380}
+        hashCode: 2002651626
+    - list: []
 --- !u!1 &365316798288332661
 GameObject:
   m_ObjectHideFlags: 0
@@ -2219,11 +2225,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 5
+      left: 4
+      down: 7
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -2357,222 +2363,228 @@ MonoBehaviour:
   data:
     size: {x: 3, y: 6, z: 4}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 9115499902980423768}
-      hashCode: 771467937
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6764829607300750700}
-      hashCode: 764326266
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 9115499902980423768}
-      hashCode: 1346691793
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 194916063455471408}
-      hashCode: -1594346880
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1647881453750429263}
-      hashCode: -1868413809
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 194916063455471408}
-      hashCode: -82615005
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 2277956753826660429}
-      hashCode: 2113857389
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 2277956753826660429}
-      hashCode: -679626639
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1665138022340451783}
-      hashCode: -547324015
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5773889619815602535}
-      hashCode: 469371344
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 1665138022340451783}
-      hashCode: -2072406177
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5313688632586899761}
-      hashCode: -576554183
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 7035608648508078972}
-      hashCode: 295425729
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 5313688632586899761}
-      hashCode: 690611433
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 3391864013232935731}
-      hashCode: -910245146
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4595760453608198391}
-      hashCode: -578702015
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 3391864013232935731}
-      hashCode: -272921017
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6461067674338016132}
-      hashCode: 1906050047
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 6461067674338016132}
-      hashCode: -1391729038
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6597766273348439401}
-      hashCode: -1052260365
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1451795175026321012}
-      hashCode: 454285280
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 6597766273348439401}
-      hashCode: -1856815099
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 7274763791028852796}
-      hashCode: -2109120864
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 655211549041172865}
-      hashCode: 1883717629
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 7274763791028852796}
-      hashCode: -1699802445
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1551534893679563154}
-      hashCode: 1293863723
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 656285530712160834}
-      hashCode: -1014663962
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 1551534893679563154}
-      hashCode: 822229349
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 2187419618694988527}
-      hashCode: 770394140
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4753239013931338403}
-      hashCode: 846634337
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 2187419618694988527}
-      hashCode: 1249280606
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1711744193360234831}
-      hashCode: -845937419
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 1711744193360234831}
-      hashCode: 68082124
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8687464275901983770}
-      hashCode: 826408369
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6451983994332271696}
-      hashCode: -758576302
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 8687464275901983770}
-      hashCode: -1013270272
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 7242996991251363213}
-      hashCode: 492775842
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6098775008809491949}
-      hashCode: -407270090
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 7242996991251363213}
-      hashCode: 1391994903
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8610162908667882822}
-      hashCode: 467863414
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5085452984573451473}
-      hashCode: -778101115
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 8610162908667882822}
-      hashCode: -1366675154
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5660649987431350378}
-      hashCode: -2046567798
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 5660649987431350378}
-      hashCode: -40695461
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 317544237923627707}
-      hashCode: -1904351150
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4501680500337241971}
-      hashCode: -794570610
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 317544237923627707}
-      hashCode: 1634287168
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 774689629984858690}
-      hashCode: 1586811016
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8829120942679673194}
-      hashCode: -62738048
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 774689629984858690}
-      hashCode: -2016005849
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 9115499902980423768}
+        hashCode: 774111616
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6764829607300750700}
+        hashCode: -1712753188
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 9115499902980423768}
+        hashCode: -2019574199
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 194916063455471408}
+        hashCode: -682278466
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1647881453750429263}
+        hashCode: 986941071
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 194916063455471408}
+        hashCode: -372352745
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 2277956753826660429}
+        hashCode: 1530759014
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 2277956753826660429}
+        hashCode: 1916884060
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1665138022340451783}
+        hashCode: -1742356954
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5773889619815602535}
+        hashCode: -912182646
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 1665138022340451783}
+        hashCode: 118125651
+    - list: []
+    - list: []
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5313688632586899761}
+        hashCode: -944638779
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 7035608648508078972}
+        hashCode: 1422118841
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 5313688632586899761}
+        hashCode: 235667838
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 3391864013232935731}
+        hashCode: 1571198920
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4595760453608198391}
+        hashCode: 1262346947
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 3391864013232935731}
+        hashCode: -1361129008
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6461067674338016132}
+        hashCode: 984786627
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 6461067674338016132}
+        hashCode: -1774436333
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6597766273348439401}
+        hashCode: -1944484629
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1451795175026321012}
+        hashCode: -875972957
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 6597766273348439401}
+        hashCode: -1042903529
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 7274763791028852796}
+        hashCode: 1342150061
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 655211549041172865}
+        hashCode: 1861218993
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 7274763791028852796}
+        hashCode: 626612141
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1551534893679563154}
+        hashCode: -271955641
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 656285530712160834}
+        hashCode: -1502564775
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 1551534893679563154}
+        hashCode: -1534889068
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 2187419618694988527}
+        hashCode: -322227349
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4753239013931338403}
+        hashCode: -770713393
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 2187419618694988527}
+        hashCode: -2055707923
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1711744193360234831}
+        hashCode: -1005240993
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 1711744193360234831}
+        hashCode: 1023514693
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8687464275901983770}
+        hashCode: -2058598855
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6451983994332271696}
+        hashCode: 128253639
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 8687464275901983770}
+        hashCode: 684355354
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 7242996991251363213}
+        hashCode: 754493980
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6098775008809491949}
+        hashCode: 322365042
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 7242996991251363213}
+        hashCode: 1621920368
+    - list: []
+    - list: []
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8610162908667882822}
+        hashCode: -1669727679
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5085452984573451473}
+        hashCode: 723038065
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 8610162908667882822}
+        hashCode: -1231667631
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5660649987431350378}
+        hashCode: 1178196996
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 5660649987431350378}
+        hashCode: -1484233345
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 317544237923627707}
+        hashCode: 1174517898
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4501680500337241971}
+        hashCode: -1160009885
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 317544237923627707}
+        hashCode: 555166332
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 774689629984858690}
+        hashCode: -1833806495
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8829120942679673194}
+        hashCode: -1244611756
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 774689629984858690}
+        hashCode: -2135266802
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
 --- !u!1 &554952763341391870
 GameObject:
   m_ObjectHideFlags: 0
@@ -2598,7 +2610,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 554952763341391870}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 6, y: 0, z: 0}
+  m_LocalPosition: {x: 6, y: 0, z: 4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763047146254}
@@ -2620,42 +2632,54 @@ MonoBehaviour:
   data:
     size: {x: 2, y: 3, z: 2}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 799773184164010618}
-      hashCode: 2127892009
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 799773184164010618}
-      hashCode: -1667320742
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 3845191822264070697}
-      hashCode: -1365389726
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 3845191822264070697}
-      hashCode: -1731642571
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4776481561631782895}
-      hashCode: -879454862
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 4776481561631782895}
-      hashCode: -1695259913
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4626162857045350000}
-      hashCode: -1878686399
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 4626162857045350000}
-      hashCode: -947946359
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 799773184164010618}
+        hashCode: 130844278
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 438459470}
+        hashCode: -1678534499
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 799773184164010618}
+        hashCode: -825581766
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 438459470}
+        hashCode: 932941490
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 3845191822264070697}
+        hashCode: -1520131348
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 438459469}
+        hashCode: 2027387573
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 3845191822264070697}
+        hashCode: -1384811042
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 438459469}
+        hashCode: -1068293940
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4776481561631782895}
+        hashCode: 496284796
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 4776481561631782895}
+        hashCode: -472274019
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4626162857045350000}
+        hashCode: 965315983
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 4626162857045350000}
+        hashCode: -2119918374
+    - list: []
+    - list: []
+    - list: []
+    - list: []
 --- !u!1 &554952763584653700
 GameObject:
   m_ObjectHideFlags: 0
@@ -2714,7 +2738,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 554952763758358618}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -4, y: 0, z: 0}
+  m_LocalPosition: {x: -6, y: 0, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763047146254}
@@ -2736,87 +2760,72 @@ MonoBehaviour:
   data:
     size: {x: 3, y: 3, z: 3}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 2803791537421354389}
-      hashCode: 1483362014
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5421117413279295624}
-      hashCode: -1635071346
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 2803791537421354389}
-      hashCode: -1341104417
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 459661124616588506}
-      hashCode: -1562604608
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 315938865493824476}
-      hashCode: -1749837308
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 459661124616588506}
-      hashCode: 1763571677
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 8885782832349226580}
-      hashCode: -1684829821
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 8885782832349226580}
-      hashCode: 1557761502
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 7354395526689197341}
-      hashCode: -1678758038
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 7354395526689197341}
-      hashCode: 1093459770
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5281675644687777220}
-      hashCode: 305575581
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5588958381031069113}
-      hashCode: -1962422499
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 5281675644687777220}
-      hashCode: 411016314
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 2803791537421354389}
+        hashCode: -323319806
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5421117413279295624}
+        hashCode: -954287585
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 2803791537421354389}
+        hashCode: -1667818025
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 459661124616588506}
+        hashCode: 1430791787
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 315938865493824476}
+        hashCode: 908596349
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 459661124616588506}
+        hashCode: -824367491
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 8885782832349226580}
+        hashCode: -816311073
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 8885782832349226580}
+        hashCode: -38086553
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 7354395526689197341}
+        hashCode: 503503758
+    - list: []
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 7354395526689197341}
+        hashCode: -842391184
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5281675644687777220}
+        hashCode: 1982077522
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5588958381031069113}
+        hashCode: -1548408060
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 5281675644687777220}
+        hashCode: 561554640
 --- !u!1 &554952764062867575
 GameObject:
   m_ObjectHideFlags: 0
@@ -2939,18 +2948,19 @@ MonoBehaviour:
   data:
     size: {x: 2, y: 1, z: 2}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1653147561819062518}
-      hashCode: 96201651
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 3218705915656041399}
-      hashCode: 477754714
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 0}
-      hashCode: 0
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5773615884107011147}
-      hashCode: 18636800
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1653147561819062518}
+        hashCode: -452469110
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 3218705915656041399}
+        hashCode: -2132742943
+    - list: []
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5773615884107011147}
+        hashCode: 757105220
 --- !u!1 &554952764715726402
 GameObject:
   m_ObjectHideFlags: 0
@@ -2976,7 +2986,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 554952764715726402}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3, y: 0, z: 5}
+  m_LocalPosition: {x: 0, y: 0, z: 10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763047146254}
@@ -2994,28 +3004,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1738fa841aaefa48828bdc223e97fef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  actionsGroups: 
+  actionsGroups: 17a5c33b
   data:
     size: {x: 2, y: 1, z: 3}
     array:
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 1027641658966576804}
-      hashCode: 52456564
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1027641658966576804}
-      hashCode: -2114208587
-    - m_variantindex: 1
-      m_blockAsset: {fileID: 6506691140965756622}
-      hashCode: 614112247
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 6506691140965756622}
-      hashCode: 352967103
-    - m_variantindex: 3
-      m_blockAsset: {fileID: 1027641658966576804}
-      hashCode: 316758821
-    - m_variantindex: 2
-      m_blockAsset: {fileID: 1027641658966576804}
-      hashCode: -1402281524
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 1027641658966576804}
+        hashCode: 47268529
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1027641658966576804}
+        hashCode: 711394839
+    - list:
+      - m_variantindex: 1
+        m_blockAsset: {fileID: 6506691140965756622}
+        hashCode: 1152260573
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 6506691140965756622}
+        hashCode: -216485602
+    - list:
+      - m_variantindex: 3
+        m_blockAsset: {fileID: 1027641658966576804}
+        hashCode: 1637815989
+    - list:
+      - m_variantindex: 2
+        m_blockAsset: {fileID: 1027641658966576804}
+        hashCode: -175560572
 --- !u!1 &554952764916239272
 GameObject:
   m_ObjectHideFlags: 0
@@ -3095,12 +3111,14 @@ MonoBehaviour:
   data:
     size: {x: 1, y: 2, z: 1}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 2867177713127150077}
-      hashCode: -447390305
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4860993536224030241}
-      hashCode: -968849557
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 2867177713127150077}
+        hashCode: -1402345522
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4860993536224030241}
+        hashCode: 1978319827
 --- !u!1 &554952765101346786
 GameObject:
   m_ObjectHideFlags: 0
@@ -3126,7 +3144,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 554952765101346786}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -12, y: 0, z: 0}
+  m_LocalPosition: {x: -12, y: 0, z: 2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763047146254}
@@ -3148,18 +3166,22 @@ MonoBehaviour:
   data:
     size: {x: 2, y: 2, z: 1}
     array:
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 2895569435507591038}
-      hashCode: 382105695
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 1943846832376021813}
-      hashCode: -1861908979
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 4454470707276765802}
-      hashCode: -497016676
-    - m_variantindex: 0
-      m_blockAsset: {fileID: 5792528847571064880}
-      hashCode: 1044869650
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 2895569435507591038}
+        hashCode: 1192190944
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 1943846832376021813}
+        hashCode: -863852862
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 4454470707276765802}
+        hashCode: 545055886
+    - list:
+      - m_variantindex: 0
+        m_blockAsset: {fileID: 5792528847571064880}
+        hashCode: -323676881
 --- !u!1 &655211549041172864
 GameObject:
   m_ObjectHideFlags: 0
@@ -3482,11 +3504,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 6
-      backward: 10
+      left: 4
+      down: 8
+      backward: 4
       right: 0
-      up: 9
+      up: 11
       forward: 0
     fill: 17
     weight: 1
@@ -3720,7 +3742,7 @@ MonoBehaviour:
       backward: 3
       right: 0
       up: 0
-      forward: 0
+      forward: 12
     fill: 31
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -3732,7 +3754,7 @@ MonoBehaviour:
       backward: 3
       right: 3
       up: 0
-      forward: 0
+      forward: 13
     fill: 47
     weight: 1
     position_editor_only: {x: 2, y: 0, z: 0}
@@ -3763,7 +3785,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1027641658966576827}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2, y: 0, z: 0}
+  m_LocalPosition: {x: 2, y: 0, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 365316799151236194}
@@ -3838,12 +3860,12 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952764715726403}
     actions: 
     sideIds:
-      left: 0
+      left: 14
       down: 0
       backward: 0
       right: 3
-      up: 5
-      forward: 12
+      up: 7
+      forward: 18
     fill: 63
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -3853,20 +3875,20 @@ MonoBehaviour:
       left: 3
       down: 0
       backward: 0
-      right: 0
-      up: 5
-      forward: 13
+      right: 14
+      up: 7
+      forward: 17
     fill: 63
     weight: 1
     position_editor_only: {x: -2, y: 0, z: 0}
   - bigBlock: {fileID: 554952764715726403}
     actions: 05000000
     sideIds:
-      left: 0
+      left: 16
       down: 0
-      backward: 12
+      backward: 18
       right: 3
-      up: 5
+      up: 7
       forward: 0
     fill: 207
     weight: 1
@@ -3876,9 +3898,9 @@ MonoBehaviour:
     sideIds:
       left: 3
       down: 0
-      backward: 13
-      right: 0
-      up: 5
+      backward: 17
+      right: 16
+      up: 7
       forward: 0
     fill: 207
     weight: 1
@@ -4095,10 +4117,10 @@ MonoBehaviour:
   - bigBlock: {fileID: 365316798106459896}
     actions: 
     sideIds:
-      left: 10
+      left: 4
       down: 0
       backward: 0
-      right: 10
+      right: 4
       up: 0
       forward: 0
     fill: 51
@@ -4437,9 +4459,9 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 11
-      down: 9
-      backward: 11
+      left: 5
+      down: 11
+      backward: 5
       right: 2
       up: 0
       forward: 2
@@ -4584,7 +4606,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1653147561819062517}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 365316797472507859}
@@ -4771,7 +4793,7 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 11
+      backward: 5
       right: 0
       up: 0
       forward: 0
@@ -4783,7 +4805,7 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 11
+      backward: 5
       right: 0
       up: 0
       forward: 0
@@ -5014,11 +5036,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 6
-      backward: 10
+      left: 4
+      down: 8
+      backward: 4
       right: 0
-      up: 9
+      up: 11
       forward: 0
     fill: 17
     weight: 1
@@ -5458,7 +5480,7 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 10
+      backward: 4
       right: 0
       up: 0
       forward: 0
@@ -5470,7 +5492,7 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 10
+      backward: 4
       right: 0
       up: 0
       forward: 0
@@ -5616,11 +5638,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 5
+      left: 4
+      down: 7
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -5731,7 +5753,7 @@ MonoBehaviour:
       down: 0
       backward: 0
       right: 3
-      up: 4
+      up: 6
       forward: 3
     fill: 127
     weight: 1
@@ -5837,8 +5859,8 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952763758358619}
     actions: 
     sideIds:
-      left: 11
-      down: 8
+      left: 5
+      down: 10
       backward: 0
       right: 0
       up: 0
@@ -5850,9 +5872,9 @@ MonoBehaviour:
     actions: 03000000
     sideIds:
       left: 0
-      down: 8
+      down: 10
       backward: 0
-      right: 11
+      right: 5
       up: 0
       forward: 0
     fill: 243
@@ -6186,7 +6208,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3218705915656041398}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1, y: 0, z: 0}
+  m_LocalPosition: {x: 2, y: 0, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 365316799021082413}
@@ -6603,11 +6625,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 5
+      left: 4
+      down: 7
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -6714,9 +6736,9 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952763341391871}
     actions: 
     sideIds:
-      left: 10
+      left: 4
       down: 0
-      backward: 10
+      backward: 4
       right: 0
       up: 0
       forward: 0
@@ -6728,8 +6750,8 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 10
-      right: 10
+      backward: 4
+      right: 4
       up: 0
       forward: 0
     fill: 34
@@ -6836,11 +6858,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 5
+      left: 4
+      down: 7
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -7000,13 +7022,14 @@ GameObject:
   - component: {fileID: 9103216152435841692}
   - component: {fileID: 5056181403005794359}
   - component: {fileID: 895699484305680700}
+  - component: {fileID: 438459470}
   m_Layer: 0
   m_Name: door_a
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &9103216152435841692
 Transform:
   m_ObjectHideFlags: 0
@@ -7015,7 +7038,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4151825979777117811}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763115710357}
@@ -7070,6 +7093,46 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &438459470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4151825979777117811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 257713248
+  weightGroup: -1966747463
+  actionsGroups: 
+  variants:
+  - bigBlock: {fileID: 554952763341391871}
+    actions: 
+    sideIds:
+      left: 3
+      down: 0
+      backward: 3
+      right: 0
+      up: 0
+      forward: 1
+    fill: 31
+    weight: 1
+    position_editor_only: {x: 0, y: 0, z: 0}
+  - bigBlock: {fileID: 554952763341391871}
+    actions: 03000000
+    sideIds:
+      left: 0
+      down: 0
+      backward: 3
+      right: 3
+      up: 0
+      forward: 1
+    fill: 47
+    weight: 1
+    position_editor_only: {x: 2, y: 0, z: 0}
 --- !u!1 &4262963124789918563
 GameObject:
   m_ObjectHideFlags: 0
@@ -7362,11 +7425,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952765101346787}
     actions: 
     sideIds:
-      left: 10
+      left: 4
       down: 0
       backward: 0
       right: 0
-      up: 8
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -7587,7 +7650,7 @@ MonoBehaviour:
       down: 0
       backward: 0
       right: 3
-      up: 5
+      up: 7
       forward: 1
     fill: 63
     weight: 1
@@ -7807,7 +7870,7 @@ MonoBehaviour:
     sideIds:
       left: 1
       down: 0
-      backward: 0
+      backward: 12
       right: 0
       up: 0
       forward: 1
@@ -7819,7 +7882,7 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 0
+      backward: 13
       right: 1
       up: 0
       forward: 1
@@ -8038,9 +8101,9 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952763341391871}
     actions: 
     sideIds:
-      left: 11
+      left: 5
       down: 0
-      backward: 11
+      backward: 5
       right: 0
       up: 0
       forward: 2
@@ -8052,8 +8115,8 @@ MonoBehaviour:
     sideIds:
       left: 0
       down: 0
-      backward: 11
-      right: 11
+      backward: 5
+      right: 5
       up: 0
       forward: 2
     fill: 242
@@ -8160,11 +8223,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952765016909754}
     actions: 
     sideIds:
-      left: 10
+      left: 4
       down: 0
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -8737,7 +8800,7 @@ MonoBehaviour:
     actions: 
     sideIds:
       left: 0
-      down: 8
+      down: 10
       backward: 0
       right: 0
       up: 0
@@ -8961,7 +9024,7 @@ MonoBehaviour:
       backward: 0
       right: 0
       up: 0
-      forward: 10
+      forward: 4
     fill: 85
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -8973,7 +9036,7 @@ MonoBehaviour:
       backward: 0
       right: 0
       up: 0
-      forward: 10
+      forward: 4
     fill: 170
     weight: 1
     position_editor_only: {x: 4, y: 0, z: 0}
@@ -9004,7 +9067,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5773615884107011146}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1, y: 0, z: 1}
+  m_LocalPosition: {x: 2, y: 0, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 365316798864797739}
@@ -9302,8 +9365,8 @@ MonoBehaviour:
       left: 0
       down: 0
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -9409,10 +9472,10 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 11
-      down: 8
+      left: 5
+      down: 10
       backward: 0
-      right: 11
+      right: 5
       up: 0
       forward: 2
     fill: 243
@@ -10054,7 +10117,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6506691140965756621}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2, y: 0, z: 2}
+  m_LocalPosition: {x: 2, y: 0, z: 8}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 365316798422091741}
@@ -10129,12 +10192,12 @@ MonoBehaviour:
   - bigBlock: {fileID: 554952764715726403}
     actions: 
     sideIds:
-      left: 0
+      left: 15
       down: 0
-      backward: 12
+      backward: 18
       right: 1
       up: 0
-      forward: 12
+      forward: 18
     fill: 15
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -10143,10 +10206,10 @@ MonoBehaviour:
     sideIds:
       left: 1
       down: 0
-      backward: 13
-      right: 0
+      backward: 17
+      right: 15
       up: 0
-      forward: 13
+      forward: 17
     fill: 15
     weight: 1
     position_editor_only: {x: -2, y: 0, z: 0}
@@ -10373,11 +10436,11 @@ MonoBehaviour:
   - bigBlock: {fileID: 0}
     actions: 
     sideIds:
-      left: 10
-      down: 5
+      left: 4
+      down: 7
       backward: 0
-      right: 10
-      up: 8
+      right: 4
+      up: 10
       forward: 0
     fill: 51
     weight: 1
@@ -11300,7 +11363,7 @@ MonoBehaviour:
       down: 0
       backward: 3
       right: 1
-      up: 6
+      up: 8
       forward: 1
     fill: 31
     weight: 1
@@ -11407,11 +11470,11 @@ MonoBehaviour:
     actions: 
     sideIds:
       left: 0
-      down: 4
+      down: 6
       backward: 0
-      right: 10
-      up: 7
-      forward: 10
+      right: 4
+      up: 9
+      forward: 4
     fill: 119
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}
@@ -11658,13 +11721,14 @@ GameObject:
   - component: {fileID: 5205231113821421450}
   - component: {fileID: 7614244591742279543}
   - component: {fileID: 1645736930996987366}
+  - component: {fileID: 438459469}
   m_Layer: 0
   m_Name: door_b
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &5205231113821421450
 Transform:
   m_ObjectHideFlags: 0
@@ -11673,7 +11737,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8620628244554060747}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalPosition: {x: 0, y: 2, z: -2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 554952763115710357}
@@ -11728,6 +11792,46 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &438459469
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8620628244554060747}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 257713248
+  weightGroup: -1966747463
+  actionsGroups: 
+  variants:
+  - bigBlock: {fileID: 554952763341391871}
+    actions: 
+    sideIds:
+      left: 4
+      down: 0
+      backward: 4
+      right: 0
+      up: 0
+      forward: 0
+    fill: 17
+    weight: 1
+    position_editor_only: {x: 0, y: 0, z: 0}
+  - bigBlock: {fileID: 554952763341391871}
+    actions: 03000000
+    sideIds:
+      left: 0
+      down: 0
+      backward: 4
+      right: 4
+      up: 0
+      forward: 0
+    fill: 34
+    weight: 1
+    position_editor_only: {x: 2, y: 0, z: 0}
 --- !u!1 &8687464275901983769
 GameObject:
   m_ObjectHideFlags: 0
@@ -12061,10 +12165,10 @@ MonoBehaviour:
   - bigBlock: {fileID: 365316798106459896}
     actions: 
     sideIds:
-      left: 11
+      left: 5
       down: 0
       backward: 0
-      right: 11
+      right: 5
       up: 0
       forward: 0
     fill: 243
@@ -12295,11 +12399,11 @@ MonoBehaviour:
     actions: 
     sideIds:
       left: 0
-      down: 7
+      down: 9
       backward: 0
-      right: 11
+      right: 5
       up: 0
-      forward: 11
+      forward: 5
     fill: 247
     weight: 1
     position_editor_only: {x: 0, y: 0, z: 0}

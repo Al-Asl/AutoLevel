@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
+using Codice.CM.Common;
 
 namespace AutoLevel
 {
@@ -87,6 +88,12 @@ namespace AutoLevel
         protected static Color BlockSideHoverColor = Color.white * 0.7f;
         protected static Color BlockSideActiveColor = Color.white * 0.7f;
 
+        private Material outlineMat;
+        private Texture removeIcon;
+
+        protected string[] allGroups;
+        protected string[] allWeightGroups;
+
         abstract protected void Initialize();
         abstract protected void Update();
         abstract protected void SceneGUI();
@@ -102,6 +109,11 @@ namespace AutoLevel
 
             activeConnections = new List<Connection>();
 
+            var basePath = System.IO.Path.Combine(EditorHelper.GetScriptDirectory<LevelBuilderEditor>(), "Resources");
+            removeIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                System.IO.Path.Combine(basePath, "BigBlockRemove.png"));
+            outlineMat = new Material(Shader.Find("Hidden/AutoLevel/Outline"));
+
             SceneView.beforeSceneGui += BeforeSceneGUI;
         }
 
@@ -110,6 +122,8 @@ namespace AutoLevel
             settingsSO.Dispose();
             handleRes.Dispose();
             DestroyImmediate(settingsEditor);
+
+            DestroyImmediate(outlineMat);
 
             SceneView.beforeSceneGui -= BeforeSceneGUI;
         }
@@ -188,6 +202,7 @@ namespace AutoLevel
                 {
                     GetRepoEntities();
                     IntegrityCheck();
+                    InitGroups();
                     Initialize();
                     isInitialized = true;
                 }
@@ -214,17 +229,14 @@ namespace AutoLevel
             if (repo == null)
                 return;
 
-            //from block assets
-            var blocks = AssetsBlocksIt(activeBlockAssets).Select((item) => item.Item1).Where((block) => block.bigBlock == null);
-            //from big block assets
-            blocks = blocks.Concat(AssetsBlocksIt(activeRepoEntities.Where((asset => asset is BigBlockAsset))).Select((item) => item.Item1));
+            var blocks = GetBlocksIt(AssetType.BlockAsset | AssetType.BigBlockAssetAll);
 
-            //sort by the closeset
+            //sort by the closest
             var targetPos = ((MonoBehaviour)target).transform.position;
-            blocks = blocks.OrderBy((block) => Vector3.Distance(GetBlockPosition(block), targetPos));
+            blocks = blocks.OrderBy((block) => Vector3.Distance(block.Item2, targetPos));
 
             connections.Clear();
-            ConnectionsUtility.GetConnectionsList(blocks, connections);
+            ConnectionsUtility.GetConnectionsList(blocks.Select((block) => block.Item1), connections);
 
             int index = 0;
             for (int i = 0; i < connections.Count; i++)
@@ -266,13 +278,20 @@ namespace AutoLevel
                 bool apply = false;
                 foreach (var index in SpatialUtil.Enumerate(so.data.Size))
                 {
-                    var block = so.data[index];
-                    if (block.blockAsset != null)
-                        if (block.VariantIndex >= block.blockAsset.variants.Count)
-                        {
-                            so.data[index] = default;
-                            apply = true;
-                        }
+                    var oList = so.data[index];
+                    var nList = new SList<AssetBlock>();
+                    for (int i = 0; i < oList.Count; i++)
+                    {
+                        var block = oList[i];
+                        if (block.blockAsset != null && 
+                            block.VariantIndex < block.blockAsset.variants.Count)
+                                nList.Add(block);
+                    }
+                    if (oList.Count != nList.Count)
+                    {
+                        so.data[index] = nList;
+                        apply = true;
+                    }
                 }
                 if (apply)
                     so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
@@ -375,18 +394,25 @@ namespace AutoLevel
 
             return fill;
         }
-
-        protected void DrawAssetsBlocks(IEnumerable<MonoBehaviour> targets)
+        private void InitGroups()
         {
-            foreach (var asset in targets)
-            {
-                if (asset is BlockAsset)
-                    foreach (var blockItem in AssetBlocksIt((BlockAsset)asset).Where((b) => b.Item1.VariantIndex != 0))
-                        BlockDC(blockItem.Item1).Move(blockItem.Item2).Draw();
-                else if (asset is BigBlockAsset)
-                    foreach (var blockItem in AssetBlocksIt((BigBlockAsset)asset))
-                        BlockDC(blockItem.Item1).Move(blockItem.Item2).Draw();
-            }
+            var repoGroups = repo.GetAllGroupsNames();
+            allGroups = new string[repoGroups.Count - 2];
+            for (int i = 2; i < repoGroups.Count; i++)
+                allGroups[i - 2] = repoGroups[i];
+
+            repoGroups = repo.GetAllWeightGroupsNames();
+            allWeightGroups = new string[repoGroups.Count - 2];
+            for (int i = 2; i < repoGroups.Count; i++)
+                allWeightGroups[i - 2] = repoGroups[i];
+        }
+
+        protected void DrawAssetsBlocks()
+        {
+            foreach(var blockItem in GetBlocksIt(AssetType.BlockAsset).
+                Where((block) => block.Item1.VariantIndex != 0).
+                Concat(GetBlocksIt(AssetType.BigBlockAssetFirst)))
+                BlockDC(blockItem.Item1).Move(blockItem.Item2).Draw();
         }
         protected DrawCommand BlockDC(IBlock block)
         {
@@ -451,7 +477,7 @@ namespace AutoLevel
                 SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
             }
         }
-        protected void DrawAssetsButtonsSides(IEnumerable<MonoBehaviour> targets)
+        protected void DoBlocksSelectionButtons(IEnumerable<MonoBehaviour> targets)
         {
             foreach (var target in targets)
             {
@@ -467,15 +493,16 @@ namespace AutoLevel
                 else if (target is BigBlockAsset)
                 {
                     var bigBlock = (BigBlockAsset)target;
+
+                    if (!GeometryUtility.TestPlanesAABB(planes, GetBigBlockBounds(bigBlock)))
+                        continue;
+
                     foreach (var sideItem in BigBlockSidesIt(bigBlock))
                     {
                         var d = sideItem.Item1.d;
                         BlockSideDC(GetSideCenter(sideItem.Item2, d), directions[d], 1f).
                         SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
                     }
-
-                    if (!GeometryUtility.TestPlanesAABB(planes, GetBigBlockBounds(bigBlock)))
-                        continue;
 
                     var buttonDC = GetDrawCmd().SetPrimitiveMesh(PrimitiveType.Cube).SetMaterial(MaterialType.UI).
                         Scale(bigBlock.data.Size).Move(bigBlock.transform.position + ((Vector3)bigBlock.data.Size) * 0.5f);
@@ -487,6 +514,83 @@ namespace AutoLevel
                     if (Button.Draw<CubeD>())
                         Selection.activeGameObject = bigBlock.gameObject;
                 }
+            }
+        }
+
+        protected enum AssetType { BlockAsset = 1 , BigBlockAssetFirst = 2 , BigBlockAssetAll = 4}
+        protected IEnumerable<(AssetBlock, Vector3)> GetBlocksIt(AssetType assetType, bool includeInActive = false)
+        {
+            var assets = includeInActive ? allRepoEntities : activeRepoEntities;
+            foreach(var asset in assets)
+            {
+                var bigBlock = asset is BigBlockAsset;
+                if ((int)assetType > 1)
+                {
+                    if (assetType.HasFlag(AssetType.BigBlockAssetFirst))
+                    {
+                        if(bigBlock)
+                        {
+                            foreach (var block in AssetBlocksFirstIt((BigBlockAsset)asset))
+                                yield return block;
+                        }
+                        else if (assetType.HasFlag(AssetType.BlockAsset))
+                        {
+                                foreach (var block in AssetBlocksIt((BlockAsset)asset))
+                                    if (GetIndexInBigBlock(block.Item1).Item2 > 0)
+                                        yield return block;
+                        }
+                    }
+                    else
+                    {
+                        if (bigBlock)
+                        {
+                            foreach (var block in AssetBlocksAllIt((BigBlockAsset)asset))
+                                yield return block;
+                        }else if (assetType.HasFlag(AssetType.BlockAsset))
+                        {
+                            foreach (var block in AssetBlocksIt((BlockAsset)asset))
+                                if (block.Item1.bigBlock == null)
+                                    yield return block;
+                        }
+                    }
+                }
+                else if (!bigBlock && assetType == AssetType.BlockAsset)
+                {
+                    foreach (var block in AssetBlocksIt((BlockAsset)asset))
+                        yield return block;
+                }
+            }
+        }
+        private IEnumerable<(AssetBlock, Vector3)> AssetBlocksFirstIt(BigBlockAsset bigBlock)
+        {
+            foreach (var index in SpatialUtil.Enumerate(bigBlock.data.Size))
+            {
+                var list = bigBlock.data[index];
+                if (!list.IsEmpty)
+                    yield return (list[0], GetPositionFromBigBlockAsset(list[0]));
+            }
+        }
+        private IEnumerable<(AssetBlock, Vector3)> AssetBlocksAllIt(BigBlockAsset bigBlock)
+        {
+            foreach (var index in SpatialUtil.Enumerate(bigBlock.data.Size))
+            {
+                var list = bigBlock.data[index];
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var block = list[i];
+                    yield return (block, GetPositionFromBigBlockAsset(block));
+                }
+            }
+        }
+        protected IEnumerable<(AssetBlock, Vector3)> AssetBlocksIt(BlockAsset blockAsset)
+        {
+            for (int j = 0; j < blockAsset.variants.Count; j++)
+            {
+                if (!settings.DrawVariants && j > 0)
+                    break;
+
+                var block = new AssetBlock(j, blockAsset);
+                yield return (block, GetPositionFromBlockAsset(block));
             }
         }
 
@@ -503,38 +607,6 @@ namespace AutoLevel
                         yield return item;
             }
         }
-        protected IEnumerable<(AssetBlock, Vector3)> AssetsBlocksIt(IEnumerable<MonoBehaviour> targets)
-        {
-            foreach (var asset in targets)
-            {
-                if (asset is BlockAsset)
-                    foreach (var item in AssetBlocksIt((BlockAsset)asset))
-                        yield return item;
-                else if (asset is BigBlockAsset)
-                    foreach (var item in AssetBlocksIt((BigBlockAsset)asset))
-                        yield return item;
-            }
-        }
-        protected IEnumerable<(AssetBlock, Vector3)> AssetBlocksIt(BigBlockAsset bigBlock)
-        {
-            foreach (var index in SpatialUtil.Enumerate(bigBlock.data.Size))
-            {
-                var block = bigBlock.data[index];
-                if (block.blockAsset != null)
-                    yield return (block, GetPositionFromBigBlockAsset(block));
-            }
-        }
-        protected IEnumerable<(AssetBlock, Vector3)> AssetBlocksIt(BlockAsset blockAsset)
-        {
-            for (int j = 0; j < blockAsset.variants.Count; j++)
-            {
-                if (!settings.DrawVariants && j > 0)
-                    break;
-
-                var block = new AssetBlock(j, blockAsset);
-                yield return (block, GetPositionFromBlockAsset(block));
-            }
-        }
         protected IEnumerable<(BlockSide, Vector3)> BigBlockSidesIt(BigBlockAsset bigBlock)
         {
             BoundsInt bounds = new BoundsInt()
@@ -542,19 +614,26 @@ namespace AutoLevel
 
             foreach (var index in SpatialUtil.Enumerate(bigBlock.data.Size))
             {
-                var block = bigBlock.data[index];
-                if (block.blockAsset == null)
-                    continue;
-
+                if (bigBlock.data[index].IsEmpty) continue;
+                var block = bigBlock.data[index][0];
                 var pos = GetPositionFromBigBlockAsset(block);
-                for (int d = 0; d < 6; d++)
+                foreach (var d in BigBlockExtSideIt(bigBlock,index))
                 {
-                    var n = index + delta[d];
-                    if (SideCullTest(pos, d) && (!bounds.Contains(n) || bigBlock.data[n].blockAsset == null))
+                    if (SideCullTest(pos, d))
                         yield return (new BlockSide(block, d), pos);
                 }
             }
 
+        }
+        protected IEnumerable<int> BigBlockExtSideIt(BigBlockAsset bigBlock,Vector3Int index)
+        {
+            BoundsInt bounds = new BoundsInt() { min = Vector3Int.zero, max = bigBlock.data.Size };
+            for (int d = 0; d < 6; d++)
+            {
+                var n = index + delta[d];
+                if (!bounds.Contains(n) || bigBlock.data[n].IsEmpty)
+                    yield return d;
+            }
         }
         protected IEnumerable<(BlockSide, Vector3)> BlockSidesIt(AssetBlock block, Vector3 blockPosition)
         {
@@ -634,6 +713,63 @@ namespace AutoLevel
             var et = directions[opposite[con.d]];
             var id = con.a.baseIds[con.d];
             Handles.DrawBezier(s, e, s + st, e + et, color, null,id == 0 ? 2f : 4f);
+        }
+
+        protected void DrawBlockToBigBlockConnection(AssetBlock block)
+        {
+            //Draw the line
+
+            {
+                Handles.color = Color.cyan;
+                Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
+                Handles.DrawLine(GetPositionFromBlockAsset(block) + Vector3.one * 0.5f,
+                                GetPositionFromBigBlockAsset(block) + Vector3.one * 0.5f, 3);
+                Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+            }
+
+            //Draw the outline
+
+            {
+                var pos = GetPositionFromBlockAsset(block) + Vector3.one * 0.5f;
+
+                GetDrawCmd().
+                    SetPrimitiveMesh(PrimitiveType.Cube).
+                    SetMaterial(outlineMat).
+                    Scale(0.95f).Move(pos).Draw();
+
+                GetDrawCmd().
+                    SetPrimitiveMesh(PrimitiveType.Cube).
+                    SetMaterial(outlineMat).
+                    SetColor(Color.cyan).
+                    Move(pos).Draw(pass: 1);
+            }
+        }
+
+        protected bool DoBlockDetachButton(AssetBlock block)
+        {
+            var bounds = new Bounds();
+            bounds.min = GetPositionFromBlockAsset(block);
+            bounds.max = bounds.min + Vector3.one;
+            var screenAnch = new Vector2(SceneView.lastActiveSceneView.position.size.x, 0);
+            var pos = BoundsUtility.ClosestCornerToScreenPoint(bounds, screenAnch);
+
+            var cmd = GetDrawCmd()
+                .SetColor(Color.white)
+                .SetMaterial(MaterialType.UI)
+                .SetTexture(removeIcon)
+                .LookAtCamera()
+                .Scale(0.25f)
+                .Move(pos);
+
+            Button.SetAll(cmd);
+            Button.hover.SetColor(Color.yellow);
+            Button.active.SetColor(Color.red);
+            if (Button.Draw<QuadD>())
+            {
+                DetachFromBigBlock(block);
+                return true;
+            }
+            return false;
         }
 
         protected void DoSideConnection(BlockSide src, Vector3 position, System.Action OnConnect)
@@ -760,18 +896,63 @@ namespace AutoLevel
                 }
             }
 
-            for (int i = 0; i < writeOps.Count; i++)
+            var bigBlockWriteOp = new List<((BigBlockAsset, Vector3Int), int, int)>();
+
+            for (int i = writeOps.Count - 1; i >= 0; i--)
             {
                 var op = writeOps[i];
-                var block = (AssetBlock)op.Item1.block;
-                var so = new BlockAssetEditor.SO(block.blockAsset);
-                var variant = so.variants[block.VariantIndex];
-                variant.sideIds[op.Item1.d] = op.Item2;
-                so.variants[block.VariantIndex] = variant;
-                so.Apply();
-                so.Dispose();
+                var block = op.Item1.block;
+                var d = op.Item1.d;
+
+                if (block.bigBlock != null)
+                {
+                    var index = GetIndexInBigBlock((AssetBlock)block).Item1;
+                    var bounds = new BoundsInt(Vector3Int.zero, block.bigBlock.data.Size);
+
+                    //only for external side
+                    if (!bounds.Contains(index + delta[d]))
+                    {
+                        //every big block cell get one write
+                        if (bigBlockWriteOp.FindIndex((item) =>
+                        item.Item1.Item1 == block.bigBlock &&
+                        item.Item1.Item2 == index) < 0)
+                        {
+                            bigBlockWriteOp.Add(((block.bigBlock, index), d, op.Item2));
+                        }
+                        writeOps.RemoveAt(i);
+                    }
+                }
             }
+
+            foreach(var op in bigBlockWriteOp)
+            {
+                var bigblock = op.Item1.Item1;
+                var index = op.Item1.Item2;
+                var side = op.Item2;
+                WriteBigBlockCellSide(bigblock, index, side, op.Item3);
+            }
+
+            foreach(var op in writeOps)
+                WriteBlockSide((AssetBlock)op.Item1.block, op.Item1.d, op.Item2);
+
             Repaint();
+        }
+
+        protected void WriteBigBlockCellSide(BigBlockAsset bigBlock,Vector3Int index, int side, int id)
+        {
+            foreach (var block in bigBlock.data[index])
+                WriteBlockSide(block, side, id);
+        }
+
+        protected void WriteBlockSide(AssetBlock block,int side,int id)
+        {
+            using (var so = new BlockAssetEditor.SO(block.blockAsset))
+            {
+                var variant = so.variants[block.VariantIndex];
+                variant.sideIds[side] = id;
+                so.variants[block.VariantIndex] = variant;
+                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
+            }
         }
 
         protected bool IsConnected(BlockSide blockSide, IEnumerable<AssetBlock> allBlocks)
@@ -792,6 +973,45 @@ namespace AutoLevel
             return false;
         }
 
+        protected int GetGroupIndex(int group) => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == group);
+        protected int GetWeightGroupIndex(int weightGroup) => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == weightGroup);
+
+        protected void DetachFromBigBlock(AssetBlock block)
+        {
+            if (block.blockAsset == null || block.bigBlock == null)
+                return;
+
+            using (var so = new BigBlockAssetEditor.SO(block.bigBlock))
+            {
+                var index = GetIndexInBigBlock(block);
+                var list = so.data[index.Item1];
+                list.RemoveAt(index.Item2);
+                so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
+            }
+
+            using (var so = new BlockAssetEditor.SO(block.blockAsset))
+            {
+                so.variants[block.VariantIndex].bigBlock = null;
+                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
+            }
+        }
+        protected void AttachToBigBlock(Vector3Int index,BigBlockAsset bigBlock,AssetBlock block)
+        {
+            if (block.bigBlock != null)
+                DetachFromBigBlock(block);
+
+            using (var so = new BlockAssetEditor.SO(block.blockAsset))
+            {
+                so.variants[block.VariantIndex].bigBlock = bigBlock;
+                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
+            }
+
+            using (var so = new BigBlockAssetEditor.SO(bigBlock))
+            {
+                so.data[index].Add(block);
+                so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
+            }
+        }
         protected Color GetColor(int id)
         {
             return ColorUtility.GetColor(new XXHash().Append(id));
@@ -807,7 +1027,9 @@ namespace AutoLevel
         {
             var assetBlock = (AssetBlock)block;
             if (block is AssetBlock)
-                return GetIndexInBigBlock(assetBlock) + assetBlock.bigBlock.transform.position;
+            {
+                return GetIndexInBigBlock(assetBlock).Item1 + assetBlock.bigBlock.transform.position;
+            }
             else
                 return block.transform.position;
         }
@@ -821,13 +1043,18 @@ namespace AutoLevel
             else
                 return block.transform.position;
         }
-        protected Vector3Int GetIndexInBigBlock(AssetBlock block)
+        protected (Vector3Int,int) GetIndexInBigBlock(AssetBlock block)
         {
             var data = block.bigBlock.data;
             foreach (var index in SpatialUtil.Enumerate(data.Size))
             {
-                if (data[index] == block)
-                    return index;
+                var list = data[index];
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (list[i] == block)
+                        return (index,i);
+                }
+                
             }
             throw new System.Exception($"can't find the block in it's big block! {block.blockAsset}");
         }

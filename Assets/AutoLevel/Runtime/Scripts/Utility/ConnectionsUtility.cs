@@ -128,7 +128,6 @@ namespace AutoLevel
                 }
             }
         }
-
         public static IDGenerator CreateIDGenerator<T>(IEnumerable<T> blocks) where T : IBlock
         {
             var set = new HashSet<int>();
@@ -156,5 +155,4 @@ namespace AutoLevel
             return new IDGenerator(set.OrderBy((x) => x));
         }
     }
-
 }

@@ -42,8 +42,6 @@ namespace AutoLevel
         private HashedFlagList actionsList;
         private ReorderableList variantsReordable;
         private bool variantsReordableChanged;
-        private string[] allGroups;
-        private string[] allWeightGroups;
 
         #region Callback
 
@@ -86,7 +84,7 @@ namespace AutoLevel
 
             EditorGUI.BeginChangeCheck();
 
-            int group = GetGroupIndex();
+            int group = GetGroupIndex(blockAsset.group);
             group = EditorGUILayout.Popup("Group", group, allGroups);
 
             if(EditorGUI.EndChangeCheck())
@@ -97,7 +95,7 @@ namespace AutoLevel
 
             EditorGUI.BeginChangeCheck();
 
-            int weightGroup = GetWeightGroupIndex();
+            int weightGroup = GetWeightGroupIndex(blockAsset.weightGroup);
             weightGroup = EditorGUILayout.Popup("Weight Group", weightGroup, allWeightGroups);
 
             if (EditorGUI.EndChangeCheck())
@@ -178,12 +176,14 @@ namespace AutoLevel
             if (cancelDown)
                 connecting = false;
 
-            DrawAssetsBlocks(activeRepoEntities);
+            DrawAssetsBlocks();
 
             if (connecting)
                 DrawAssetsBlocksSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
             else
-                DrawAssetsButtonsSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
+                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target));
+
+            DoBlockToBigBlockConnectionsControls();
 
             DrawConnections(activeConnections);
 
@@ -208,12 +208,7 @@ namespace AutoLevel
 
         private void InitGroups()
         {
-            var repoGroups = repo.GetAllGroupsNames();
-            allGroups = new string[repoGroups.Count - 2];
-            for (int i = 2; i < repoGroups.Count; i++)
-                allGroups[i - 2] = repoGroups[i];
-
-            if (blockAsset.group == 0 || GetGroupIndex() == -1)
+            if (blockAsset.group == 0 || GetGroupIndex(blockAsset.group) == -1)
             {
                 //adding the base group
                 blockAsset.group = allGroups[0].GetHashCode();
@@ -222,12 +217,7 @@ namespace AutoLevel
         }
         private void InitWeightGroups()
         {
-            var repoGroups = repo.GetAllWeightGroupsNames();
-            allWeightGroups = new string[repoGroups.Count - 2];
-            for (int i = 2; i < repoGroups.Count; i++)
-                allWeightGroups[i - 2] = repoGroups[i];
-
-            if (blockAsset.weightGroup == 0 || GetWeightGroupIndex() == -1)
+            if (blockAsset.weightGroup == 0 || GetWeightGroupIndex(blockAsset.weightGroup) == -1)
             {
                 //adding the base group
                 blockAsset.weightGroup = allWeightGroups[0].GetHashCode();
@@ -269,28 +259,12 @@ namespace AutoLevel
                 variantsReordableChanged = true;
             };
         }
-        private int GetGroupIndex() => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == blockAsset.group);
-        private int GetWeightGroupIndex() => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == blockAsset.weightGroup);
 
         private void DetachFromBigBlock(int index)
         {
-            var variant = variants[index];
-            using (var bigBlockSo = new BigBlockAssetEditor.SO(variant.bigBlock))
-            {
-                var data = bigBlockSo.data;
-                foreach (var i in SpatialUtil.Enumerate(data.Size))
-                {
-                    var block = data[i];
-                    if (block.blockAsset == blockAsset.target && block.VariantIndex == index)
-                    {
-                        data[i] = new AssetBlock();
-                        break;
-                    }
-                }
-                bigBlockSo.ApplyField(nameof(BigBlockAssetEditor.SO.data));
-            }
-            variant.bigBlock = null;
-            ApplyVariants();
+            DetachFromBigBlock(new AssetBlock(index, blockAsset.target));
+            blockAsset.UpdateField(nameof(SO.variants));
+            GenerateConnections(activeConnections);
 
         }
         private void SetSelectedVariant(int index)
@@ -341,6 +315,23 @@ namespace AutoLevel
                 variants[i].weight = src;
 
             ApplyVariants();
+        }
+
+        private void DoBlockToBigBlockConnectionsControls()
+        {
+            for (int i = 0; i < variants.Count; i++)
+            {
+                if (variants[i].bigBlock != null)
+                {
+                    var block = new AssetBlock(i, blockAsset.target);
+                    DrawBlockToBigBlockConnection(block);
+                    if (DoBlockDetachButton(block))
+                    {
+                        blockAsset.Update();
+                        GenerateConnections(activeConnections);
+                    }
+                }
+            }
         }
 
         private void DoMyBlocksMoveHandles()

@@ -14,7 +14,7 @@ namespace AutoLevel
         interface IPropagter
         {
             void Clear();
-            bool Propagate();
+            void Propagate();
             void Ban(Possibility poss);
         }
         
@@ -55,7 +55,7 @@ namespace AutoLevel
                     BannedPerConfig[i].Clear();
             }
 
-            public bool Propagate()
+            public void Propagate()
             {
                 while(true)
                 {
@@ -71,11 +71,11 @@ namespace AutoLevel
                     }
 
                     if (maxIndex == -1)
-                        return true;
+                        return;
 
                     //TODO : need a better way that factor for cell per configuration
                     if (stackCount < 30000)
-                        return true;
+                        return;
 
                     var bannedInConfig = BannedPerConfig[maxIndex];
                     foreach (var cell in bannedInConfig)
@@ -142,12 +142,10 @@ namespace AutoLevel
                 stack.Clear();
             }
 
-            public bool Propagate()
+            public void Propagate()
             {
                 while (stack.Count > 0)
-                    if (!solver.Propagate(stack.Pop()))
-                        return false;
-                return true;
+                    solver.Propagate(stack.Pop());
             }
 
             public void Ban(Possibility poss)
@@ -476,9 +474,9 @@ namespace AutoLevel
             });
         }
 
-        protected override bool Propagate()
+        protected override void Propagate()
         {
-            var result = propagter.Propagate();
+            propagter.Propagate();
 
             //the multi threaded propagation only run once
             if(propagter == propagterMT)
@@ -486,9 +484,8 @@ namespace AutoLevel
                 propagterMT.FillStack(propagterST.stack);
                 propagter = propagterST;
             }
-
-            return result;
         }
+
         private bool Propagate(Possibility poss)
         {
             for (int d = 0; d < 6; d++)

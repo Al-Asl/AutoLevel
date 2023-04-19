@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace AutoLevel
 {
@@ -254,7 +255,7 @@ namespace AutoLevel
                     asset.variants.Add(new BlockAsset.VariantDesc()
                     {
                         fill = GenerateFill(asset.target.gameObject),
-                        sideIds = new SideIds()
+                        sideIds = new ConnectionsIds()
                     });
                     asset.ApplyField(nameof(BlockAssetEditor.SO.variants));
                 }

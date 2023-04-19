@@ -12,14 +12,15 @@ namespace AutoLevel
         Transform transform { get; }
         BlockAsset blockAsset { get; }
         BigBlockAsset bigBlock { get; }
-        List<int> groups { get; }
+        int group { get; }
+        int weightGroup { get; }
         List<BlockAction> actions { get; }
 
         BlockResources blockResources { get; }
         Mesh baseMesh { get; }
 
-        SideIds compositeIds { get; }
-        SideIds baseIds { get; }
+        ConnectionsIds compositeIds { get; }
+        ConnectionsIds baseIds { get; }
         int fill { get; }
         float weight { get; }
 
@@ -71,7 +72,8 @@ namespace AutoLevel
         public Transform transform => gameObject.transform;
         public BlockAsset blockAsset => m_blockAsset;
         public BigBlockAsset bigBlock => Variant.bigBlock;
-        public List<int> groups => m_blockAsset.groups;
+        public int group => m_blockAsset.group;
+        public int weightGroup => m_blockAsset.weightGroup;
         public List<BlockAction> actions => Variant.actions;
         public BlockResources blockResources
         {
@@ -90,9 +92,9 @@ namespace AutoLevel
         }
         public Mesh baseMesh => BlockUtility.GetMesh(gameObject);
 
-        public SideIds compositeIds => BlockUtility.GetCompositeIds(this);
+        public ConnectionsIds compositeIds => BlockUtility.GetCompositeIds(this);
 
-        public SideIds baseIds => Variant.sideIds;
+        public ConnectionsIds baseIds => Variant.sideIds;
         public int fill => Variant.fill;
         public float weight => Variant.weight;
 
@@ -100,7 +102,7 @@ namespace AutoLevel
         {
             return new StandalnoeBlock(
                 new List<BlockAction>(Variant.actions), gameObject, bigBlock,
-                groups, baseIds, fill, weight);
+                group, weightGroup, baseIds, fill, weight);
         }
     }
 
@@ -109,24 +111,26 @@ namespace AutoLevel
         private BigBlockAsset m_bigBlock;
 
         public StandalnoeBlock(
-            List<BlockAction> actions, GameObject gameObject, BigBlockAsset bigBlock, List<int> groups,
-            SideIds baseIds, int fill, float weight)
+            List<BlockAction> actions, GameObject gameObject, BigBlockAsset bigBlock, int group,
+            int weightGroup, ConnectionsIds baseIds, int fill, float weight)
         {
             this.actions = new List<BlockAction>(actions);
             this.gameObject = gameObject;
             this.m_bigBlock = bigBlock;
-            this.groups = groups;
+            this.group = group;
+            this.weightGroup = weightGroup;
             this.baseIds = baseIds;
             this.fill = fill;
             this.weight = weight;
         }
-        public StandalnoeBlock(List<int> groups, int fill, float weight)
+        public StandalnoeBlock(int group,int weightGroup, int fill, float weight)
         {
             this.actions = new List<BlockAction>();
             this.gameObject = null;
             this.baseIds = default;
             this.m_bigBlock = null;
-            this.groups = groups;
+            this.weightGroup = weightGroup;
+            this.group = group;
             this.fill = fill;
             this.weight = weight;
         }
@@ -155,7 +159,8 @@ namespace AutoLevel
         public Transform transform => gameObject.transform;
         public BlockAsset blockAsset => gameObject.GetComponent<BlockAsset>();
         public BigBlockAsset bigBlock => m_bigBlock;
-        public List<int> groups { get; set; }
+        public int group { get; set; }
+        public int weightGroup { get; set; }
         public List<BlockAction> actions { get; set; }
 
         public BlockResources blockResources
@@ -175,9 +180,9 @@ namespace AutoLevel
         }
         public Mesh baseMesh => BlockUtility.GetMesh(gameObject);
 
-        public SideIds compositeIds => BlockUtility.GetCompositeIds(this);
+        public ConnectionsIds compositeIds => BlockUtility.GetCompositeIds(this);
 
-        public SideIds baseIds { get; set; }
+        public ConnectionsIds baseIds { get; set; }
         public int fill { get; set; }
         public float weight { get; set; }
 
@@ -185,7 +190,7 @@ namespace AutoLevel
         {
             return new StandalnoeBlock(
                 new List<BlockAction>(actions), gameObject, m_bigBlock,
-                groups, baseIds, fill, weight);
+                group, weightGroup, baseIds, fill, weight);
         }
 
         public void ApplyAction(BlockAction action)

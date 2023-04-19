@@ -33,9 +33,9 @@ namespace AutoLevel
 
         public static int GetSideCompositeId(IBlock block, int side) => new XXHash().Append(block.baseIds[side]).Append(FillUtility.GetSide(block.fill, side));
 
-        public static SideIds GetCompositeIds(IBlock block)
+        public static ConnectionsIds GetCompositeIds(IBlock block)
         {
-            var ids = new SideIds();
+            var ids = new ConnectionsIds();
             for (int d = 0; d < 6; d++)
                 ids[d] = GetSideCompositeId(block, d);
             return ids;

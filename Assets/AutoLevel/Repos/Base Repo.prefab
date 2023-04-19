@@ -94,7 +94,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -203,7 +204,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58abc14e369
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -312,7 +314,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -421,7 +424,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58abc14e369
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 
   variants:
   - bigBlock: {fileID: 0}
@@ -530,7 +534,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58abc14e369
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 
   variants:
   - bigBlock: {fileID: 0}
@@ -639,7 +644,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -748,7 +754,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -857,7 +864,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -926,8 +934,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8316d914211614e4999e3f74f2369147, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  userGroups:
-  - Floor
+  groups: []
+  weightGroups: []
   actionsGroups:
   - name: Full Y Rotate
     groupActions:
@@ -1028,7 +1036,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -1137,7 +1146,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58a
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}
@@ -1246,7 +1256,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b28a614bff297f49acdcac6a0eab7d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  groups: b9d0c58abc14e369
+  group: -1966747463
+  weightGroup: -1966747463
   actionsGroups: 17a5c33b
   variants:
   - bigBlock: {fileID: 0}

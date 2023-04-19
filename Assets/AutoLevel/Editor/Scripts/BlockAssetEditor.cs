@@ -15,7 +15,8 @@ namespace AutoLevel
         public class SO : BaseSO<BlockAsset>
         {
             public List<int> actionsGroups;
-            public List<int> groups;
+            public int group;
+            public int weightGroup;
             public List<BlockAsset.VariantDesc> variants;
 
             public SO(SerializedObject serializedObject) : base(serializedObject) { }
@@ -27,7 +28,6 @@ namespace AutoLevel
         [SerializeField]
         private int selected;
         private List<BlockAsset.VariantDesc> variants       => blockAsset.variants;
-        private List<int> groups                            => blockAsset.groups;
         private List<int> actionsGroups                     => blockAsset.actionsGroups;
         private Transform transform                         => blockAsset.target.transform;
         private BlockAsset.VariantDesc selectedVar          => blockAsset.variants[selected];
@@ -40,10 +40,10 @@ namespace AutoLevel
 
         private Rect contextMenuRect;
         private HashedFlagList actionsList;
-        private HashedFlagList groupList;
         private ReorderableList variantsReordable;
         private bool variantsReordableChanged;
-
+        private string[] allGroups;
+        private string[] allWeightGroups;
 
         #region Callback
 
@@ -72,6 +72,7 @@ namespace AutoLevel
                 SetSelectedVariant(0);
 
             InitGroups();
+            InitWeightGroups();
             InitActionsGroups();
 
             GenerateConnections(activeConnections);
@@ -84,16 +85,26 @@ namespace AutoLevel
             EditorGUILayout.Space();
 
             EditorGUI.BeginChangeCheck();
-            var groupExpand = blockAsset.GetFieldExpand(nameof(SO.groups));
-            groupExpand = EditorGUILayout.BeginFoldoutHeaderGroup(groupExpand, "Groups");
+
+            int group = GetGroupIndex();
+            group = EditorGUILayout.Popup("Group", group, allGroups);
+
+            if(EditorGUI.EndChangeCheck())
+            {
+                blockAsset.group = allGroups[group].GetHashCode();
+                blockAsset.ApplyField(nameof(SO.group));
+            }
+
+            EditorGUI.BeginChangeCheck();
+
+            int weightGroup = GetWeightGroupIndex();
+            weightGroup = EditorGUILayout.Popup("Weight Group", weightGroup, allWeightGroups);
 
             if (EditorGUI.EndChangeCheck())
-                blockAsset.SetFieldExpand(nameof(SO.groups), groupExpand);
-
-            if (groupExpand)
-                groupList.Draw(groups);
-
-            EditorGUILayout.EndFoldoutHeaderGroup();
+            {
+                blockAsset.weightGroup = allWeightGroups[weightGroup].GetHashCode();
+                blockAsset.ApplyField(nameof(SO.weightGroup));
+            }
 
             EditorGUILayout.Space();
 
@@ -197,20 +208,31 @@ namespace AutoLevel
 
         private void InitGroups()
         {
-            var allGroups = new List<string>(repo.GetAllGroupsNames());
-            //remove empty and solid groups
-            allGroups.RemoveAt(0);
-            allGroups.RemoveAt(0);
+            var repoGroups = repo.GetAllGroupsNames();
+            allGroups = new string[repoGroups.Count - 2];
+            for (int i = 2; i < repoGroups.Count; i++)
+                allGroups[i - 2] = repoGroups[i];
 
-            if (groups.Count == 0)
+            if (blockAsset.group == 0 || GetGroupIndex() == -1)
             {
                 //adding the base group
-                groups.Add(allGroups[0].GetHashCode());
-                blockAsset.ApplyField(nameof(SO.groups));
+                blockAsset.group = allGroups[0].GetHashCode();
+                blockAsset.ApplyField(nameof(SO.group));
             }
+        }
+        private void InitWeightGroups()
+        {
+            var repoGroups = repo.GetAllWeightGroupsNames();
+            allWeightGroups = new string[repoGroups.Count - 2];
+            for (int i = 2; i < repoGroups.Count; i++)
+                allWeightGroups[i - 2] = repoGroups[i];
 
-            groupList = new HashedFlagList(allGroups, groups, () => blockAsset.ApplyField(nameof(SO.groups)));
-            groupList.MinListSize = 1;
+            if (blockAsset.weightGroup == 0 || GetWeightGroupIndex() == -1)
+            {
+                //adding the base group
+                blockAsset.weightGroup = allWeightGroups[0].GetHashCode();
+                blockAsset.ApplyField(nameof(SO.weightGroup));
+            }
         }
         private void InitActionsGroups()
         {
@@ -247,6 +269,8 @@ namespace AutoLevel
                 variantsReordableChanged = true;
             };
         }
+        private int GetGroupIndex() => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == blockAsset.group);
+        private int GetWeightGroupIndex() => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == blockAsset.weightGroup);
 
         private void DetachFromBigBlock(int index)
         {

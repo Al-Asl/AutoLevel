@@ -2,7 +2,7 @@
 {
 
     [System.Serializable]
-    public struct SideIds
+    public struct ConnectionsIds
     {
         public int left;
         public int down;

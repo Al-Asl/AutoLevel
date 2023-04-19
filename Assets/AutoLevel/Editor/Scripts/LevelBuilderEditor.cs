@@ -18,7 +18,7 @@ namespace AutoLevel
         {
             public BlocksRepo blockRepo;
 
-            public List<LevelBuilder.GroupSettings> groupsSettings;
+            public List<LevelBuilder.GroupSettings> GroupsWeights;
 
             public LevelBuilder.BoundarySettings boundarySettings;
 
@@ -43,7 +43,7 @@ namespace AutoLevel
 
         private SO builder;
         private BlocksRepo.Runtime repo;
-        List<LevelBuilder.GroupSettings> groupsSettings     => builder.groupsSettings;
+        List<LevelBuilder.GroupSettings> groupsSettings     => builder.GroupsWeights;
         private Array3D<int> levelBlocks                    => builder.levelData.Blocks;
         private Array3D<InputWaveCell> inputWave            => builder.inputWave;
         private BoundsInt selection { get => builder.selection; set => builder.SetSelection(value); }
@@ -206,13 +206,9 @@ namespace AutoLevel
             if (EditorGUI.EndChangeCheck())
                 SceneView.RepaintAll();
 
-            // boundary //
-
             EditorGUILayout.Space();
 
             BoundiesSettingsGUI();
-
-            // groups //
 
             EditorGUILayout.Space();
 
@@ -339,14 +335,14 @@ namespace AutoLevel
 
                 bool groupChanged = false;
 
-                if (repo.GroupsCount != so.groupsSettings.Count)
+                if (repo.WeightGroupsCount != so.GroupsWeights.Count)
                     groupChanged = true;
                 else
                 {
-                    for (int i = 0; i < repo.GroupsCount; i++)
+                    for (int i = 0; i < repo.WeightGroupsCount; i++)
                     {
-                        var gh = repo.GetGroupHash(i);
-                        if (gh != so.groupsSettings[i].hash)
+                        var gh = repo.GetWeightGroupHash(i);
+                        if (gh != so.GroupsWeights[i].hash)
                         {
                             groupChanged = true;
                             break;
@@ -356,20 +352,20 @@ namespace AutoLevel
 
                 if (groupChanged)
                 {
-                    if (so.groupsSettings.Count != 0)
+                    if (so.GroupsWeights.Count != 0)
                         Debug.Log($"adjusting to change in the Repo groups {levelBuilder.gameObject.name}");
 
                     var map = new List<int>();
                     var newSettings = new List<LevelBuilder.GroupSettings>();
-                    for (int i = 0; i < repo.GroupsCount; i++)
+                    for (int i = 0; i < repo.WeightGroupsCount; i++)
                     {
-                        var hash = repo.GetGroupHash(i);
-                        var oldIndex = so.groupsSettings.FindIndex((a) => a.hash == hash);
+                        var hash = repo.GetWeightGroupHash(i);
+                        var oldIndex = so.GroupsWeights.FindIndex((a) => a.hash == hash);
                         map.Add(oldIndex);
-                        newSettings.Add(oldIndex != -1 ? so.groupsSettings[oldIndex] :
+                        newSettings.Add(oldIndex != -1 ? so.GroupsWeights[oldIndex] :
                             new LevelBuilder.GroupSettings() { hash = hash, Weight = 1 });
                     }
-                    so.groupsSettings = newSettings;
+                    so.GroupsWeights = newSettings;
 
                     foreach (var index in SpatialUtil.Enumerate(so.inputWave.Size))
                     {
@@ -390,7 +386,7 @@ namespace AutoLevel
                         so.inputWave[index] = (all || niw.Invalid()) ? InputWaveCell.AllGroups : niw;
                     }
 
-                    so.ApplyField(nameof(SO.groupsSettings));
+                    so.ApplyField(nameof(SO.GroupsWeights));
                     so.ApplyField(nameof(SO.inputWave));
                 }
 
@@ -610,19 +606,19 @@ namespace AutoLevel
             EditorGUI.BeginChangeCheck();
 
             EditorGUI.BeginChangeCheck();
-            var expand = builder.GetFieldExpand(nameof(SO.groupsSettings));
+            var expand = builder.GetFieldExpand(nameof(SO.GroupsWeights));
             expand = EditorGUILayout.BeginFoldoutHeaderGroup(expand, "Group Settings");
 
             if(EditorGUI.EndChangeCheck())
-                builder.SetFieldExpand(nameof(SO.groupsSettings), expand);
+                builder.SetFieldExpand(nameof(SO.GroupsWeights), expand);
 
             if (expand)
             {
-                for (int i = 0; i < repo.GroupsCount; i++)
+                for (int i = 0; i < repo.WeightGroupsCount; i++)
                 {
                     EditorGUILayout.BeginVertical(GUI.skin.box);
 
-                    EditorGUILayout.LabelField(repo.GetGroupName(i));
+                    EditorGUILayout.LabelField(repo.GetWeightGroupName(i));
 
                     var setting = groupsSettings[i];
 
@@ -646,7 +642,7 @@ namespace AutoLevel
             EditorGUILayout.EndFoldoutHeaderGroup();
 
             if (EditorGUI.EndChangeCheck())
-                builder.ApplyField(nameof(SO.groupsSettings));
+                builder.ApplyField(nameof(SO.GroupsWeights));
         }
 
 

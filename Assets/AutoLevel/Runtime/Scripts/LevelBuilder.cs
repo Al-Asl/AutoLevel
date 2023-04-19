@@ -36,7 +36,7 @@ namespace AutoLevel
         private BlocksRepo blockRepo;
 
         [SerializeField]
-        private List<GroupSettings> groupsSettings = new List<GroupSettings>();
+        private List<GroupSettings> GroupsWeights = new List<GroupSettings>();
         [SerializeField]
         private BoundarySettings boundarySettings = new BoundarySettings();
 

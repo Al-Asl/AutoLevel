@@ -57,7 +57,7 @@ namespace AutoLevel
 
     public static class ConnectionsUtility
     {
-        public static List<int[]>[] GetAdjacencyList(List<SideIds> connectionsIds)
+        public static List<int[]>[] GetAdjacencyList(List<ConnectionsIds> connectionsIds)
         {
             var alist = new List<int[]>[6];
             for (int d = 0; d < 6; d++)

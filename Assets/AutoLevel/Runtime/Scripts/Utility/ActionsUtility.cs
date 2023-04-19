@@ -35,7 +35,7 @@ namespace AutoLevel
             return builder.ToString();
         }
 
-        public static SideIds ApplyAction(SideIds sides, BlockAction action)
+        public static ConnectionsIds ApplyAction(ConnectionsIds sides, BlockAction action)
         {
             int temp = 0;
             switch (action)

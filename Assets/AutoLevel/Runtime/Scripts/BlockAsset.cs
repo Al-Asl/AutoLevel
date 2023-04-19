@@ -15,7 +15,7 @@ namespace AutoLevel
         {
             public BigBlockAsset bigBlock;
             public List<BlockAction> actions = new List<BlockAction>();
-            public SideIds sideIds = new SideIds();
+            public ConnectionsIds sideIds = new ConnectionsIds();
             public int fill = 0;
             public float weight = 1f;
 
@@ -41,7 +41,9 @@ namespace AutoLevel
         }
 
         [SerializeField]
-        public List<int> groups = new List<int>();
+        public int group;
+        [SerializeField]
+        public int weightGroup;
         [SerializeField]
         public List<int> actionsGroups = new List<int>();
         [SerializeField]

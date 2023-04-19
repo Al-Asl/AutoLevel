@@ -47,71 +47,6 @@ namespace AutoLevel
         // wc wave cell | iwc input wave cell | lc level cell
         // n neighbor
 
-        /// <summary>
-        /// calculate the interaction between two collections of groups at a given direction
-        /// </summary>
-        class GroupInteractionHandler
-        {
-            private BlocksRepo.Runtime repo;
-
-            private BlocksRepo.GroupsEnumerator groupsEnum;
-            private int[] tempA;
-
-            public GroupInteractionHandler(BlocksRepo.Runtime repo)
-            {
-                this.repo = repo;
-                tempA = new int[repo.BlocksCount];
-                groupsEnum = repo.GetDistinctGroupsEnumerable();
-            }
-
-            public void Process(InputWaveCell cellA, InputWaveCell cellB, int d, int[] output)
-            {
-                tempA.Fill(() => 0);
-                groupsEnum.SetWave(cellA);
-
-                foreach (var g_a_index in cellA.GroupsEnum(repo.GroupsCount))
-                {
-                    var g_a_counter = repo.groupCounter[d][g_a_index];
-                    var blocks_a = repo.BlocksPerGroup[g_a_index];
-
-                    foreach (var g_b_index in cellB.GroupsEnum(repo.GroupsCount))
-                    {
-                        var g_a_b_counter = g_a_counter[g_b_index];
-                        for (int c = 0; c < g_a_b_counter.Length; c++)
-                            tempA[blocks_a[c]] += g_a_b_counter[c];
-                    }
-
-                    for (int i = 0; i < blocks_a.Count; i++)
-                    {
-                        var b = blocks_a[i];
-                        //guard against duplicates in `a` groups
-                        output[b] = tempA[b];
-                        tempA[b] = 0;
-                    }
-                }
-
-                //guard against duplicates in `b` groups
-                foreach (var b in repo.GetGroupsEnumerable(cellB))
-                    tempA[b]++;
-                var od = opposite[d];
-                foreach (var b in groupsEnum)
-                {
-                    var c = tempA[b];
-                    if (c > 0)
-                    {
-                        if (c > 1)
-                        {
-                            var conn = repo.Connections[od][b];
-                            for (int v = 0; v < conn.Length; v++)
-                                output[conn[v]] -= c - 1;
-                        }
-                        tempA[c] = 0;
-                    }
-                }
-                groupsEnum.Reset();
-            }
-        }
-
         enum Result
         {
             Success,
@@ -143,7 +78,6 @@ namespace AutoLevel
         private Dictionary<int, int[]>[,,] wave;
         private float[,,] weights;
         private Stack<Possibility> stack;
-        private GroupInteractionHandler interactionHandler;
         private IEnumerable<Vector3Int> SolverVolume => SpatialUtil.Enumerate(solveBounds.size);
         private System.Random rand;
         private ILevelBoundary[] boundaries = new ILevelBoundary[6];
@@ -173,7 +107,6 @@ namespace AutoLevel
         public void SetRepo(BlocksRepo.Runtime repo)
         {
             this.repo = repo;
-            interactionHandler = new GroupInteractionHandler(repo);
         }
 
         public void SetlevelData(LevelData levelData)
@@ -197,6 +130,10 @@ namespace AutoLevel
             boundaries[(int)d] = boundary;
         }
 
+        public void SetGroupBoundary(string GroupName, Direction d)
+        {
+            boundaries[(int)d] = new GroupsBoundary(repo.GetGroupIndex(GroupName));
+        }
 
         public int Solve(BoundsInt bounds, int iteration = 10 , int seed = 0)
         {
@@ -261,7 +198,7 @@ namespace AutoLevel
                 for (int i = 0; i < 6; i++)
                     counter[i] = new int[repo.BlocksCount];
 
-                var groupsEnum = repo.GetDistinctGroupsEnumerable();
+                //var groupsEnum = repo.GetDistinctGroupsEnumerable();
 
                 foreach (var index in SolverVolume)
                 {
@@ -269,7 +206,7 @@ namespace AutoLevel
                     var iwc = inputWave[li.z, li.y, li.x];
 
                     weights[index.z, index.y, index.x] =
-                        iwc.GroupsEnum(repo.GroupsCount).Sum((g) => repo.groupWeights[g]);
+                        iwc.GroupsEnum(repo.GroupsCount).Sum((g) => repo.GetGroupWeight(g));
                 }
 
 
@@ -280,7 +217,7 @@ namespace AutoLevel
 
                     var wc = wave[index.z, index.y, index.x];
 
-                    groupsEnum.SetWave(iwc);
+                    //groupsEnum.SetWave(iwc);
 
                     for (int d = 0; d < 6; d++)
                     {
@@ -297,10 +234,10 @@ namespace AutoLevel
                         var nli = li + delta[d];
                         var niwc = inputWave[nli.z, nli.y, nli.x];
 
-                        interactionHandler.Process(iwc, niwc, d, counter[d]);
+                        CountConnections(iwc, niwc, d, counter[d]);
                     }
 
-                    foreach (var b in groupsEnum)
+                    foreach (var b in repo.GetGroupsEnumerable(iwc))
                     {
                         int[] c = new int[6];
                         bool ban = false;
@@ -320,7 +257,7 @@ namespace AutoLevel
                         else
                             wc[b] = c;
                     }
-                    groupsEnum.Reset();
+                    //groupsEnum.Reset();
                 }
             }
         }
@@ -605,7 +542,7 @@ namespace AutoLevel
                 return;
 
             int[] counter = new int[repo.BlocksCount];
-            interactionHandler.Process(iwc, niwc, d, counter);
+            CountConnections(iwc, niwc, d, counter);
 
             List<int> toBan = new List<int>();
             foreach (var item in wc)
@@ -642,6 +579,23 @@ namespace AutoLevel
             if (wc.Count == 1)
                 blocksCounter[wc.First().Key]++;
             stack.Push(poss);
+        }
+
+        public void CountConnections(InputWaveCell cellA, InputWaveCell cellB, int d, int[] output)
+        {
+            var groupCounter = repo.groupCounter[d];
+            foreach (var group_a in cellA.GroupsEnum(repo.GroupsCount))
+            {
+                var groupCounter_a = groupCounter[group_a];
+                var groupRange = repo.GetGroupRange(group_a);
+
+                foreach (var group_b in cellB.GroupsEnum(repo.GroupsCount))
+                {
+                    var counter = groupCounter_a[group_b];
+                    for (int i = groupRange.x; i < groupRange.y; i++)
+                        output[i] += counter[i - groupRange.x];
+                }
+            }
         }
 
         private bool OnBoundary(Vector3Int index) => OnBoundary(index.x, index.y, index.z, Vector3Int.zero, solveBounds.size);

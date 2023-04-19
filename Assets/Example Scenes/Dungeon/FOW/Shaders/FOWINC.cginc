@@ -15,13 +15,12 @@ struct v2f
 
 sampler2D _MainTex;
 float4 _MainTex_ST;
-
-Texture2D<float> _Stencil;
-float4 _Stencil_TexelSize;
+float4 _MainTex_TexelSize;
 
 float4 _Bounds;
 float4 _VisionSource_WS;
 float4 _VisionSource_SS;
+float4 _FOWParams;
 // (scale, offset, magnitude)
 float4 _NoiseParam;
 float _BlendFactor;
@@ -44,8 +43,8 @@ v2f vert_occluder(appdata v)
     v2f o = (v2f)0;
     float4 wpos = mul(UNITY_MATRIX_M, v.vertex);
     float3 delta = wpos - _VisionSource_WS;
-    float d = exp(delta.y*2);
-    delta.y = 0;    
+    float d = max(0,exp(delta.y) - 1)* _FOWParams.x + _FOWParams.y;
+    delta.y = 0;
     wpos.xyz += normalize(delta) * d ;
     o.vertex = mul(UNITY_MATRIX_VP, wpos);
     return o;

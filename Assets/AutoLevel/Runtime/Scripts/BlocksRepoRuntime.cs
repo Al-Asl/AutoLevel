@@ -167,13 +167,15 @@ namespace AutoLevel
                 private List<ActionsGroup> actionsGroups;
                 private Dictionary<int, int> actionsToIndex;
                 private Dictionary<int, int> connectionsMap;
-                private LinkedList<int> ids;
+                private ConnectionsUtility.IDGenerator idGen;
 
-                public BigBlockAssetGenerator(List<ActionsGroup> actionsGroups, Dictionary<int, int> actionsToIndex, LinkedList<int> ids)
+                public BigBlockAssetGenerator(List<ActionsGroup> actionsGroups, 
+                    Dictionary<int, int> actionsToIndex,
+                    ConnectionsUtility.IDGenerator idGen)
                 {
                     this.actionsGroups = actionsGroups;
                     this.actionsToIndex = actionsToIndex;
-                    this.ids = ids;
+                    this.idGen = idGen;
                     connectionsMap = new Dictionary<int, int>();
                 }
 
@@ -183,13 +185,31 @@ namespace AutoLevel
                     foreach (var bigBlock in assets)
                     {
                         var data = bigBlock.data;
-                        connectionsMap.Clear();
-                        var internalConnections = ConnectionsUtility.GetInternalConnections(data);
 
-                        //generate the default big block
-                        foreach (var conn in internalConnections)
-                            connectionsMap[conn] = ConnectionsUtility.GetAndUpdateNextId(ids);
-                        GenerateBlocksFromBigBlockAsset(data, new List<BlockAction>(), blocks);
+                        connectionsMap.Clear();
+                        foreach (var conn in SpatialUtil.EnumerateConnections(data.Size))
+                        {
+                            var srcA = data[conn.Item1];
+                            var srcB = data[conn.Item2];
+
+                            if (srcA.blockAsset == null || srcB.blockAsset == null) continue;
+
+                            var idA = srcA.baseIds[conn.Item3];
+                            var idB = srcB.baseIds[Directions.opposite[conn.Item3]];
+                            if (idA != 0)
+                            {
+                                if (idA == idB)
+                                {
+                                    if(!connectionsMap.ContainsKey(idA))
+                                        connectionsMap[idA] = idGen.GetNext();
+                                }
+                                else
+                                    throw new System.Exception($"Repo generation failed! the blocks {srcA.blockAsset.name},{srcB.blockAsset.name} have different ids inside the big block {bigBlock.name}");
+                            }
+                        }
+                        var internalConnections = new List<int>(connectionsMap.Select((pair) => pair.Key));
+
+                        GenerateBlocks(data, new List<BlockAction>(), blocks);
 
                         //generate the states from the actions groups
                         foreach (var group in bigBlock.actionsGroups)
@@ -199,56 +219,63 @@ namespace AutoLevel
                             foreach (var actionsGroup in actionsGroups)
                             {
                                 foreach (var conn in internalConnections)
-                                    connectionsMap[conn] = ConnectionsUtility.GetAndUpdateNextId(ids);
+                                    connectionsMap[conn] = idGen.GetNext();
 
-                                GenerateBlocksFromBigBlockAsset(data, actionsGroup.actions,blocks);
+                                GenerateBlocks(data, actionsGroup.actions, blocks);
                             }
                         }
                     }
                 }
 
-                private void GenerateBlocksFromBigBlockAsset (Array3D<AssetBlock> bigBlock,List<BlockAction> actions, List<IBlock> blocks)
+                private void GenerateBlocks(Array3D<AssetBlock> srcData, List<BlockAction> actions, List<IBlock> blocks)
                 {
-                    var count = bigBlock.Size.x * bigBlock.Size.y * bigBlock.Size.z;
-                    var bounds = new BoundsInt(Vector3Int.zero, bigBlock.Size);
-
-                    Dictionary<(Vector3Int, int), int> IdsMap = new Dictionary<(Vector3Int, int), int>();
-
-                    foreach (var index in SpatialUtil.Enumerate(bigBlock.Size))
+                    Array3D<StandalnoeBlock> dstData = new Array3D<StandalnoeBlock>(srcData.Size);
+                    foreach (var index in SpatialUtil.Enumerate(srcData.Size))
                     {
-                        var block = bigBlock[index.z, index.y, index.x];
+                        var block = srcData[index];
+                        if(block.blockAsset != null)
+                            dstData[index] = block.CreateCopy();
+                    }
 
-                        if (block.blockAsset == null)
+                    foreach (var conn in SpatialUtil.EnumerateConnections(srcData.Size))
+                    {
+                        var srcA = srcData[conn.Item1];
+                        var srcB = srcData[conn.Item2];
+
+                        if (srcA.blockAsset == null || srcB.blockAsset == null) continue;
+
+                        var id = srcA.baseIds[conn.Item3];
+
+                        if (id == 0)
+                            id = idGen.GetNext();
+                        else
+                            id = connectionsMap[id];
+
+                        SetID(dstData, conn.Item1, conn.Item3, id);
+                        SetID(dstData, conn.Item2, Directions.opposite[conn.Item3], id);
+                    }
+
+                    var count = dstData.Size.x * dstData.Size.y * dstData.Size.z;
+
+                    foreach (var index in SpatialUtil.Enumerate(dstData.Size))
+                    {
+                        var block = dstData[index];
+                        if (block.gameObject == null)
                             continue;
 
-                        var newBlock = block.CreateCopy();
-                        var baseIds = newBlock.baseIds;
-                        for (int d = 0; d < 6; d++)
-                        {
-                            var code = baseIds[d];
-                            if (code == 0)
-                            {
-                                var nIndex = index + Directions.delta[d];
-                                if (bounds.Contains(nIndex) && bigBlock[nIndex].blockAsset != null)
-                                {
-                                    if (IdsMap.ContainsKey((index, d)))
-                                        baseIds[d] = IdsMap[(index, d)];
-                                    else
-                                    {
-                                        var newId = ConnectionsUtility.GetAndUpdateNextId(ids);
-                                        IdsMap[(nIndex, Directions.opposite[d])] = newId;
-                                        baseIds[d] = newId;
-                                    }
-                                }
-                            }
-                            else if (connectionsMap.ContainsKey(code))
-                                baseIds[d] = connectionsMap[code];
-                        }
-                        newBlock.weight /= count;
-                        newBlock.baseIds = baseIds;
-                        newBlock.ApplyActions(actions);
-                        blocks.Add(newBlock);
+                        block.ApplyActions(actions);
+                        block.weight /= count;
+                        blocks.Add(block);
                     }
+                }
+
+                private void SetID(Array3D<StandalnoeBlock> array, Vector3Int index, int d, int id)
+                {
+                    var block = array[index];
+                    var baseIds = block.baseIds;
+                    baseIds[d] = id;
+                    block.baseIds = baseIds;
+                    array[index] = block;
                 }
             }
 
@@ -351,8 +378,8 @@ namespace AutoLevel
                 var blockAssetGenerator = new BlockAssetGenerator(actionsGroups, actionsToIndex);
                 blockAssetGenerator.Generate(blockAssets, allBlocks);
 
-                var ids = new LinkedList<int>(ConnectionsUtility.GetListOfSortedIds(BlockAsset.GetBlocksEnum(blockAssets)));
-                var bigBlockAssetGenerator = new BigBlockAssetGenerator(actionsGroups, actionsToIndex, ids);
+                var idGen = ConnectionsUtility.CreateIDGenerator(BlockAsset.GetBlocksEnum(blockAssets));
+                var bigBlockAssetGenerator = new BigBlockAssetGenerator(actionsGroups, actionsToIndex, idGen);
                 bigBlockAssetGenerator.Generate(bigBlockAssets, allBlocks);
 
                 Dictionary<int, int> groupHashToIndex = HashToIndexLookup(groups);

@@ -918,7 +918,8 @@ namespace AutoLevel
                         SetPrimitiveMesh(PrimitiveType.Quad).
                         SetMaterial(MaterialType.UI).
                         SetColor(blue).
-                        SetTexture(connectingIcon);
+                        SetTexture(connectingIcon).
+                        Scale(2f);
 
             if (!connecting)
             {
@@ -978,6 +979,11 @@ namespace AutoLevel
             }
             else
             {
+                if(Event.current.type == EventType.MouseDown && Event.current.button == 1)
+                {
+                    connecting = false;
+                }
+
                 var pos = GetSideCenter(levelBounds, connectingSide);
 
                 SceneView.RepaintAll();

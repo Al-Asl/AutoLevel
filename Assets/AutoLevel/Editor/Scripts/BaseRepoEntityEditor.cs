@@ -736,8 +736,7 @@ namespace AutoLevel
 
             if (!isAConnected && !isBConnected)
             {
-                var hashes = ConnectionsUtility.GetListOfSortedIds(allBlocks);
-                var next = ConnectionsUtility.GetNextId(hashes);
+                var next = ConnectionsUtility.CreateIDGenerator(allBlocks).GetNext();
                 writeOps.Add((src, next));
                 writeOps.Add((dst, next));
             }

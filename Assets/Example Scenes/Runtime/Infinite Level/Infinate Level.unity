@@ -152,9 +152,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 317e17abb42be084f81fe7f7954028af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxIterations: 1
+  maxIterations: 2
   RebuildAsync: 1
-  UseMultiThreadedSolver: 0
+  UseMultiThreadedSolver: 1
   repo: {fileID: 554952764062867568, guid: 0f0ab8c77f61868468ccf1c3033bee5a, type: 3}
   excludedGroups:
   - Stair
@@ -306,7 +306,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61e9237e4c837d5468715887ffde4fb8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 10
+  speed: 8
 --- !u!1 &1534398362
 GameObject:
   m_ObjectHideFlags: 0

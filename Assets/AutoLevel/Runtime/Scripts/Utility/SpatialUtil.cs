@@ -186,6 +186,28 @@ namespace AutoLevel
         public static Vector2Int Index1DTo2D(int i, int sizex)
             => new Vector2Int(i % sizex, i / sizex);
 
+        public static IEnumerable<(Vector3Int, Vector3Int, int)> EnumerateConnections(Vector3Int size)
+        {
+            for (int x = 0; x < size.x - 1; x++)
+                foreach (var index in Enumerate(size.yz()))
+                {
+                    var i = index.nxy() + Vector3Int.right * x;
+                    yield return (i, i + Vector3Int.right, 3);
+                }
+            for (int y = 0; y < size.y - 1; y++)
+                foreach (var index in Enumerate(size.xz()))
+                {
+                    var i = index.xny() + Vector3Int.up * y;
+                    yield return (i, i + Vector3Int.up, 4);
+                }
+            for (int z = 0; z < size.z - 1; z++)
+                foreach (var index in Enumerate(size.xy()))
+                {
+                    var i = index.xyn() + Vector3Int.forward * z;
+                    yield return (i, i + Vector3Int.forward, 5);
+                }
+        }
+
         public static IEnumerable<Vector3Int> Enumerate(Vector3Int start, Vector3Int end)
         {
             return new Enumerator3D(start, end);

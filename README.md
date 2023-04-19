@@ -6,6 +6,8 @@ Free procural level generator based on WFC algorithm for unity.
 
 The target of this package is to create a procural level generator that is controllable, easy to use, and fast to some extent by leveraging the power of the WFC. WFC is a powerful algorithm in terms of procural generation. However, it does not give the user control over the generation process.
 
+You can check out the tutorial [here](https://www.youtube.com/watch?v=1-M3W0y42L4).
+
 ## Features
 * Runtime WFC solver
 * Editor tools, build level inside the editor

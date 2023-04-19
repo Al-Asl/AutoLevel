@@ -56,12 +56,15 @@ namespace AutoLevel
                 {
                     if (value.size != levelBounds.size)
                     {
-                        inputWave.Resize(value.size);
-                        foreach (var index in SpatialUtil.Enumerate(value.size))
+                        var newBounds = value;
+                        newBounds.size = Vector3Int.Max(Vector3Int.one, newBounds.size);
+
+                        inputWave.Resize(newBounds.size);
+                        foreach (var index in SpatialUtil.Enumerate(newBounds.size))
                             if (inputWave[index].Invalid()) inputWave[index] = InputWaveCell.AllGroups;
                         ApplyInputWave();
 
-                        builder.levelData.bounds = value;
+                        builder.levelData.bounds = newBounds;
                         builder.ApplyField(nameof(SO.levelData));
                     }
                     if (value.position != levelBounds.position)

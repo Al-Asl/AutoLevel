@@ -200,12 +200,12 @@ namespace AutoLevel
             var allGroups = new List<string>(repo.GetAllGroupsNames());
             //remove empty and solid groups
             allGroups.RemoveAt(0);
-            allGroups.RemoveAt(1);
+            allGroups.RemoveAt(0);
 
             if (groups.Count == 0)
             {
                 //adding the base group
-                groups.Add(allGroups[2].GetHashCode());
+                groups.Add(allGroups[0].GetHashCode());
                 blockAsset.ApplyField(nameof(SO.groups));
             }
 

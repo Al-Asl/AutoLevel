@@ -1,118 +1,53 @@
 # Auto-Level
 
-<img src="documentation/images/autolevel.gif" width="900px"/>
+[![Autolevel Trailer](documentation/images/trailer.png)](https://www.youtube.com/watch?v=94toUiUJqB8 "Autolevel Trailer")
 
 Free procural level generator based on WFC algorithm for unity.
 
-The target of this package is to create a procural level generator that is controllable, easy to use, and fast to some extent by leveraging the power of the WFC. WFC is a powerful algorithm in terms of procural generation. However, it does not give the user control over the generation process.
-
-You can check out the tutorial [here](https://www.youtube.com/watch?v=1-M3W0y42L4).
+The target of this package is to create a procural level generator that is controllable, easy to use, and fast to some extent by leveraging the power of the WFC.
 
 ## Features
-* Runtime WFC solver
-* Editor tools, build level inside the editor
-* Set the weight for individual Blocks or Block Group
-* Control the generation process, and constrain volume to groups of Blocks
-* Constrain boundary to a single group or another builder boundary
-* Ability to rebuild a given section of the level
-* Block variants and Block group variants
+* Weight, volume, and boundary constraints
+* Editor tools to easily configure your art and constraint the builder
+* Easily extended
+* Selection rebuild
 * Big block support
-* Mesh builder that supports multiple materials input, with the ability to subdivide the level into chunks
-* fbx export
-* multi threaded solver (only work with constrainst)
+* Fbx export
+* Multi-threaded solver (only work with constraints)
 
 Complete C# source code is provided.
 
 ## Usage
 
-* Create the `Blocks Repo` by clicking 'GameObject/AutoLevel/Blocks Repo'
-* Place Blocks under the `Blocks Repo` in the hierarchy. Make sure that the mesh is read/write enabled in the import settings, and the Blocks are in the range (0,0,0) (1,1,1), and their pivot is in the bottom back left corner.
-* Add the `Block Asset` component to the Blocks
-* Select a Block and start making connections in the scene view. Remember to change the editing mode to connection. After the connections are made, the `Blocks Repo` is ready to use
-
-<img src="documentation/images/blocksRepo.png" width="900px"/>
-
-* Create a `Level Builder` by clicking 'GameObject/AutoLevel/Builder'
-* Assign the `Blocks Repo` to the builder
-* Use the selection handle to set block groups over the level. The level inspector provides a toggle to switch between controlling the level or selection bounds. Bounds can be controlled via inspector or by using scene handles. Toggle between the different handles using w,r,t
-* Hit the rebuild button
-* Hit `Export Mesh` to export the result to fbx file
-
-Keep in mind that the Building performance depends on two factors the size of the builder and the number of blocks produced by the repo. You can get better performance by only building where needed using multiple builders. Also, using constraints can reduce the building time significantly.
-
-<img src="documentation/images/levelBuilder.png" width="900px"/>
-
-### Runtime Example
-
-```csharp
-using UnityEngine;
-using AutoLevel;
-
-public class BasicExample : MonoBehaviour
-    {
-        [SerializeField]
-        public BlocksRepo repo;
-        [SerializeField]
-        public BoundsInt bounds;
-
-        private BlocksRepo.Runtime runtimeRepo;
-        private LevelMeshBuilder meshBuilder;
-        private LevelData levelData;
-        private LevelSolver solver;
-
-        private void OnEnable()
-        {
-            //generate blocks connections, variants and other configuration
-            BlocksRepo.Runtime runtimeRepo = repo.CreateRuntime();
-
-            //a container for the solver result
-            levelData = new LevelData(bounds);
-            meshBuilder = new LevelMeshBuilder(levelData, runtimeRepo);
-
-            solver = new LevelSolver(bounds.size);
-            solver.SetRepo(runtimeRepo);
-            solver.SetlevelData(levelData);
-
-            //set the bottom boundary
-            solver.SetGroupBoundary(BlocksRepo.SOLID_GROUP, Direction.Down);
-        }
-
-        private void OnDisable()
-        {
-            runtimeRepo.Dispose();
-            meshBuilder.Dispose();
-        }
-
-        private void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.R))
-                Rebuild(bounds);
-        }
-
-        void Rebuild(BoundsInt bounds)
-        {
-            //run the solver, this will return the number of iteration it took,
-            //0 means the solver has failed
-            var iterations = solver.Solve(bounds);
-            if (iterations > 0)
-            {
-                //rebuild the mesh if the solver success
-                meshBuilder.Rebuild(bounds);
-            }
-        }
-    }
+Clone the repo with submodules using the following command:
 ```
+git clone --recurse-submodules https://github.com/Al-Asl/AutoLevel.git
+```
+Auto level consists of the following components:
+
+* `Level Builder` where you can do all of your constraints, building, and exporting.
+<img src="documentation/images/levelbuilder.png" width="900px"/>
+
+* `Block Repo` is the resource needed by the `Level Builder` to run, it basically contains the pieces and the relationship between them.
+<img src="documentation/images/blockrepo.png" width="900px"/>
+
+* `Block Asset` is the main component needed to define the relationships between pieces.
+* `Big Block Asset` is a composite of blocks generated by `Block Asset` used on blocks that need to be transformed together.
+
+You can get started by watching the [tutorial](https://www.youtube.com/watch?v=1-M3W0y42L4).
+
+you can also check the API usage to build the level at runtime check out the `Example Scenes\Runtime`
 
 **FILLING**
 
 When selecting a `Block Asset,` there is an option called filling in the scene view context menu dropdown. This will show handles to edit the block filling, red for empty and green for fill, similar to the marching cubes algorithm.
 
-The filling has two roles. First, the connections will only be made to blocks with similar side patterns. Second, `Level Builder` can use that information to define the level rooms. The builder contains two built-in groups, the 'Empty' and 'Solid' groups, and you can use them to define the rooms and walls.
+`Level Builder` can use that information to define the level rooms. The builder contains two built-in groups, the 'Empty' and 'Solid' groups, and you can use them to define the rooms and walls.
 
-## PERFORMACE
+## PERFORMANCE TIPS
 
-* Multi threaded solver can only give a better performance where constrainst are used with heavy load tasks, and could yield up to 3x original performance.
-* There is a considerable cost when using a block group. This cost has been reduced significantly by creating a lookup table for group interaction, it still has a significant cost, but it offers great flexibility.
+* Keep in mind that the Building performance depends on two factors the size of the builder and the number of blocks produced by the repo. You can get better performance by only building where needed using multiple builders. Also, using constraints can reduce the building time significantly.
+* Multi-threaded solver can only give a better performance where constraints are used with a heavy load task and could yield up to 3x the original performance.
 
 ## WHATS NEXT
 * Layers

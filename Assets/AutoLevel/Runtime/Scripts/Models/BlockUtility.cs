@@ -58,7 +58,7 @@ namespace AutoLevel
 
             return new XXHash(1).
                 Append(mesh != null ? block.baseMesh.name.GetHashCode() : 0).
-                Append(block.hasGameObject ? block.gameObject.GetHashCode() : 0).
+                Append(block.hasGameObject ? block.gameObject.name.GetHashCode() : 0).
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(block.actions)).
                 Append(block.layerSettings.layer);

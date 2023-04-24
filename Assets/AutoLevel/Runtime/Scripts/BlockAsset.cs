@@ -14,10 +14,10 @@ namespace AutoLevel
         {
             public BigBlockAsset bigBlock;
 
-            public List<BlockAction>    actions = new List<BlockAction>();
-            public ConnectionsIds       sideIds = new ConnectionsIds();
-            public int                  fill    = 0;
-            public float                weight  = 1f;
+            public List<BlockAction>    actions;
+            public ConnectionsIds       sideIds;
+            public int                  fill;
+            public float                weight;
 
             public LayerSettings        layerSettings;
 
@@ -25,7 +25,14 @@ namespace AutoLevel
             [HideInInspector, SerializeField]
             public Vector3 position_editor_only;
 #endif
-            public VariantDesc() { }
+            public VariantDesc() 
+            {
+                actions         = new List<BlockAction>();
+                sideIds         = new ConnectionsIds();
+                fill            = 0;
+                weight          = 1f;
+                layerSettings   = new LayerSettings(0);
+            }
 
             public VariantDesc(VariantDesc other)
             {
@@ -35,6 +42,7 @@ namespace AutoLevel
                 actions         = new List<BlockAction>(other.actions);
                 fill            = other.fill;
                 sideIds         = other.sideIds;
+                weight          = other.weight;
                 layerSettings   = new LayerSettings(other.layerSettings);
             }
         }

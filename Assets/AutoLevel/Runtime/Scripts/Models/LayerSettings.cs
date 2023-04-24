@@ -22,6 +22,8 @@ namespace AutoLevel
         public bool PartOfBaseLayer => layer == 0;
         public bool HasDependencies => dependencies.Count != 0;
 
+        public LayerSettings() : this(0) { }
+
         public LayerSettings(int layer)
         {
             this.layer      = layer;

@@ -205,8 +205,8 @@ namespace AutoLevel
             {
                 if (!isInitialized)
                 {
-                    GetRepoEntities();
-                    IntegrityCheck();
+                    GetRepoEntities(repo ,out allRepoEntities,out activeRepoEntities);
+                    IntegrityCheck(repo, allRepoEntities);
                     InitGroups();
                     Initialize();
                     isInitialized = true;
@@ -220,7 +220,10 @@ namespace AutoLevel
             camera = SceneView.lastActiveSceneView.camera;
             planes = GeometryUtility.CalculateFrustumPlanes(camera);
         }
-        protected void GetRepoEntities()
+        private static void GetRepoEntities(
+            BlocksRepo repo,
+            out List<MonoBehaviour> allRepoEntities,
+            out List<MonoBehaviour> activeRepoEntities)
         {
             var allTransforms = repo.GetComponentsInChildren<Transform>(true);
             var allBlockAssets = allTransforms.Select((t) => t.GetComponent<BlockAsset>()).Where((asset) => asset != null);
@@ -253,20 +256,26 @@ namespace AutoLevel
 
         }
 
-        protected void IntegrityCheck()
+        public static void IntegrityCheck(BlocksRepo repo)
+        {
+            GetRepoEntities(repo, out var all, out var active);
+            IntegrityCheck(repo, all);
+        }
+        private static void IntegrityCheck(BlocksRepo repo, IEnumerable<MonoBehaviour> allRepoEntities)
         {
             foreach (var entity in allRepoEntities)
             {
                 if (entity is BlockAsset)
-                    IntegrityCheck((BlockAsset)entity);
+                    IntegrityCheck((BlockAsset)entity, repo);
                 else if (entity is BigBlockAsset)
                     IntegrityCheck((BigBlockAsset)entity);
             }
         }
-        protected void IntegrityCheck(BlockAsset blockAsset)
+        private static void IntegrityCheck(BlockAsset blockAsset, BlocksRepo repo)
         {
-            if (blockAsset.variants.Count == 0)
-                using (var asset = new BlockAssetEditor.SO(blockAsset))
+            using (var asset = new BlockAssetEditor.SO(blockAsset))
+            {
+                if (blockAsset.variants.Count == 0)
                 {
                     asset.variants.Add(new BlockAsset.VariantDesc()
                     {
@@ -275,8 +284,27 @@ namespace AutoLevel
                     });
                     asset.ApplyField(nameof(BlockAssetEditor.SO.variants));
                 }
+
+                var groupNames = repo.GetAllGroupsNames();
+
+                if (blockAsset.group == 0 || groupNames.FindIndex((name)=> name.GetHashCode() == blockAsset.group) == -1)
+                {
+                    //adding the base group
+                    blockAsset.group = groupNames[2].GetHashCode();
+                    asset.ApplyField(nameof(BlockAssetEditor.SO.group));
+                }
+
+                var weightGroupNames = repo.GetAllWeightGroupsNames();
+
+                if (blockAsset.weightGroup == 0 || weightGroupNames.FindIndex((name) => name.GetHashCode() == blockAsset.weightGroup) == -1)
+                {
+                    //adding the base group
+                    blockAsset.weightGroup = weightGroupNames[2].GetHashCode();
+                    asset.ApplyField(nameof(BlockAssetEditor.SO.weightGroup));
+                }
+            }
         }
-        protected void IntegrityCheck(BigBlockAsset blockAsset)
+        private static void IntegrityCheck(BigBlockAsset blockAsset)
         {
             using (var so = new BigBlockAssetEditor.SO(blockAsset))
             {
@@ -302,7 +330,7 @@ namespace AutoLevel
                     so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
             }
         }
-        private int GenerateFill(GameObject gameObject)
+        private static int GenerateFill(GameObject gameObject)
         {
             Mesh mesh = BlockUtility.GetMesh(gameObject);
 

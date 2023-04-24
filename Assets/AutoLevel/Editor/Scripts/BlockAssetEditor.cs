@@ -52,13 +52,24 @@ namespace AutoLevel
             blockAsset = new SO(target);
 
             base.OnEnable();
+
+            Undo.undoRedoPerformed += UndoCallback;
         }
+
+
 
         protected override void OnDisable()
         {
             base.OnDisable();
 
             blockAsset.Dispose();
+
+            Undo.undoRedoPerformed -= UndoCallback;
+        }
+
+        private void UndoCallback()
+        {
+            GenerateConnections(activeConnections);
         }
 
         protected override void Initialize()
@@ -71,8 +82,6 @@ namespace AutoLevel
             else
                 SetSelectedVariant(0);
 
-            InitGroups();
-            InitWeightGroups();
             InitActionsGroups();
 
             GenerateConnections(activeConnections);
@@ -222,33 +231,12 @@ namespace AutoLevel
 
         #endregion
 
-
-
-        private void InitGroups()
-        {
-            if (blockAsset.group == 0 || GetGroupIndex(blockAsset.group) == -1)
-            {
-                //adding the base group
-                blockAsset.group = allGroups[0].GetHashCode();
-                blockAsset.ApplyField(nameof(SO.group));
-            }
-        }
-        private void InitWeightGroups()
-        {
-            if (blockAsset.weightGroup == 0 || GetWeightGroupIndex(blockAsset.weightGroup) == -1)
-            {
-                //adding the base group
-                blockAsset.weightGroup = allWeightGroups[0].GetHashCode();
-                blockAsset.ApplyField(nameof(SO.weightGroup));
-            }
-        }
         private void InitActionsGroups()
         {
             actionsList = new HashedFlagList(
                 repo.GetActionsGroupsNames(),
                 actionsGroups,
-                () =>
-                blockAsset.ApplyField(nameof(SO.actionsGroups)));
+                () => blockAsset.ApplyField(nameof(SO.actionsGroups)));
         }
         private void CreateVariantsReordable()
         {

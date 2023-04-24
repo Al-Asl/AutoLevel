@@ -59,6 +59,9 @@ namespace AutoLevel
 
                         builder.levelData.bounds = newBounds;
                         builder.ApplyAllLevelLayers();
+
+                        levelDataDrawer?.Dispose();
+                        levelDataDrawer = new LevelDataDrawer(builder.levelData, repo);
                     }
                     if (value.position != levelBounds.position)
                     {
@@ -67,6 +70,7 @@ namespace AutoLevel
                     }
                     //to clamp selection to level bounds
                     selection = selection;
+
                     levelDataDrawer.RebuildAll();
                 }
             }
@@ -276,6 +280,7 @@ namespace AutoLevel
             if (builder.blockRepo == null)
                 return;
 
+            BaseRepoEntityEditor.IntegrityCheck(builder.BlockRepo);
             repo = builder.blockRepo.CreateRuntime();
 
             IntegrityCheck(builder.target, this.repo);
@@ -489,6 +494,7 @@ namespace AutoLevel
                 if (data.BlockRepo == null)
                     continue;
 
+                BaseRepoEntityEditor.IntegrityCheck(data.BlockRepo);
                 boundaryRepos[d] = data.BlockRepo.CreateRuntime();
 
                 IntegrityCheck(boundaryLevel, boundaryRepos[d]);

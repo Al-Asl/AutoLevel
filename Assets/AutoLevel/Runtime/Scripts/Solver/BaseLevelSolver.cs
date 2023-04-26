@@ -115,11 +115,11 @@ namespace AutoLevel
             groupWeights = new List<float>();
         }
 
-        public bool SolveAll(int iteration = 10)
+        public bool SolveAll(int iteration = 10,int seed = 0)
         {
             var bounds = new BoundsInt(Vector3Int.zero, levelData.size);
             for (int i = 0; i < levelData.LayersCount; i++)
-                if (Solve(bounds, i, iteration) == 0)
+                if (Solve(bounds, i, iteration, seed) == 0)
                     return false;
             return true;
         }
@@ -322,6 +322,7 @@ namespace AutoLevel
                 blocksCounter = new int[repo.BlocksCount];
             blocksCounter.Fill(() => 0);
 
+            weightsSum = 0;
             for (int i = 0; i < repo.BlocksCount; i++)
                 weightsSum += blockWeights[i];
 

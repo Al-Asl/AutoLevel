@@ -7,6 +7,9 @@ namespace AutoLevel.Examples
     public class BasicExample : MonoBehaviour
     {
         [SerializeField]
+        [Tooltip("zero means the seed is random")]
+        public int seed;
+        [SerializeField]
         public BlocksRepo repo;
         [SerializeField]
         public BoundsInt bounds;
@@ -48,7 +51,7 @@ namespace AutoLevel.Examples
         void Rebuild()
         {
             //run the solver, return true on success
-            if (solver.SolveAll())
+            if (solver.SolveAll(seed: seed))
             {
                 //rebuild the mesh if the solver success
                 meshBuilder.RebuildAll();

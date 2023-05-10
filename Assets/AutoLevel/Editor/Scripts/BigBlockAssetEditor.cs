@@ -21,44 +21,38 @@ namespace AutoLevel
             ConnectionConnecting = 6,
         }
 
-        public class SO : BaseSO<BigBlockAsset>
-        {
-            public bool overrideGroup;
-            public int group;
+        private BigBlockAssetSO blockAsset;
 
-            public bool overrideWeightGroup;
-            public int weightGroup;
+        private Transform                   transform => blockAsset.target.transform;
+        private Array3D<SList<AssetBlock>>  data => blockAsset.data;
+        private List<int>                   actionsGroups => blockAsset.actionsGroups;
 
-            public List<int> actionsGroups;
-            public Array3D<SList<AssetBlock>> data;
-
-            public SO(SerializedObject serializedObject) : base(serializedObject) { }
-            public SO(Object target) : base(target) { }
-        }
-
-        private SO blockAsset;
-        private Transform transform => blockAsset.target.transform;
-        private Array3D<SList<AssetBlock>> data => blockAsset.data;
-        private List<int> actionsGroups => blockAsset.actionsGroups;
         private Bounds bounds => new Bounds() { min = transform.position, max = transform.position + data.Size };
-        private Bounds visibilityBounds => new Bounds() { min = transform.position, max = transform.position + new Vector3(data.Size.x, visibilityLevel, data.Size.z) };
 
         private Tool current;
 
         private HashedFlagList actionsList;
 
-        private EditMode editMode = EditMode.EditCell;
-        private Vector3Int connectingIndex;
-        private int connectingDir;
+        private EditMode    editMode = EditMode.EditCell;
+        private Vector3Int  connectingIndex;
+        private int         connectingDir;
+
         private bool connecting
         {
             get => ((int)editMode & 4) > 0;
             set => editMode = (EditMode)(value ? 4 | (int)editMode : ~4 & (int)editMode);
         }
+        private Bounds visibilityBounds
+        {
+            get => new Bounds() { 
+                min = transform.position,
+                max = transform.position + new Vector3(data.Size.x, visibilityLevel, data.Size.z) };
+        }
 
-        private Vector3Int highLightedIndex;
-        private Vector3Int index;
-        private int visibilityLevel;
+
+        private Vector3Int  highLightedIndex;
+        private Vector3Int  index;
+        private int         visibilityLevel;
 
         #region Callback
 
@@ -66,7 +60,7 @@ namespace AutoLevel
         {
             base.OnEnable();
 
-            blockAsset = new SO(target);
+            blockAsset = new BigBlockAssetSO(target);
             visibilityLevel = data.Size.y;
         }
 
@@ -84,12 +78,13 @@ namespace AutoLevel
                 DataResize(Vector3Int.one);
 
             actionsList = new HashedFlagList(
-                repo.GetActionsGroupsNames(),
+                repo.target.GetActionsGroupsNames(),
                 actionsGroups,
-                () => blockAsset.ApplyField(nameof(SO.actionsGroups)));
+                () => blockAsset.ApplyField(nameof(BigBlockAssetSO.actionsGroups)));
 
             if(GetGroupIndex(blockAsset.group) == -1)
                 blockAsset.group = allGroups[0].GetHashCode();
+
             if (GetWeightGroupIndex(blockAsset.weightGroup) == -1)
                 blockAsset.weightGroup = allWeightGroups[0].GetHashCode();
 
@@ -101,6 +96,24 @@ namespace AutoLevel
         protected override void InspectorGUI()
         {
             EditorGUILayout.Space();
+
+            var newLayer = EditorGUILayout.IntField("Layer", blockAsset.blockLayer);
+            if(newLayer != blockAsset.blockLayer)
+            {
+                bool changeLayer = EditorUtility.DisplayDialog("Big Block Layer Change", 
+                    "Changing the layer will invalidate all the cells, " +
+                    "are you sure that you want to continue?", "Yes","No");
+
+                if (changeLayer)
+                {
+                    foreach (var index in SpatialUtil.Enumerate(data.Size))
+                        data[index].Clear();
+
+                    blockAsset.blockLayer = newLayer;
+                    blockAsset.ApplyField(nameof(BigBlockAssetSO.blockLayer));
+                    blockAsset.ApplyField(nameof(BigBlockAssetSO.data));
+                }
+            }
 
             EditorGUI.BeginChangeCheck();
 
@@ -136,10 +149,10 @@ namespace AutoLevel
 
             if (EditorGUI.EndChangeCheck())
             {
-                blockAsset.ApplyField(nameof(SO.overrideGroup));
-                blockAsset.ApplyField(nameof(SO.group));
-                blockAsset.ApplyField(nameof(SO.overrideWeightGroup));
-                blockAsset.ApplyField(nameof(SO.weightGroup));
+                blockAsset.ApplyField(nameof(BigBlockAssetSO.overrideGroup));
+                blockAsset.ApplyField(nameof(BigBlockAssetSO.group));
+                blockAsset.ApplyField(nameof(BigBlockAssetSO.overrideWeightGroup));
+                blockAsset.ApplyField(nameof(BigBlockAssetSO.weightGroup));
             }
 
             EditorGUILayout.Space();
@@ -219,7 +232,7 @@ namespace AutoLevel
 
             DrawLinesToCellsBlocks();
 
-            DrawConnections(activeConnections);
+            DrawConnections();
 
             if (editMode == EditMode.EditCell)
                 DrawGrid();
@@ -290,7 +303,7 @@ namespace AutoLevel
 
             GetDrawCmd().
                 SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(handleRes.ButtonCubeMat).
+                SetMaterial(handleRes.button_cube_mat).
                 Move(GetCellCenterPosition(index)).
                 SetColor(NiceColors.CarrotRrange).
                 Draw();
@@ -313,7 +326,7 @@ namespace AutoLevel
 
             var buttonDraw = GetDrawCmd().
                 SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(handleRes.ButtonCubeMat).
+                SetMaterial(handleRes.button_cube_mat).
                 Move(GetCellCenterPosition(highLightedIndex));
 
             Button.SetAll(buttonDraw);
@@ -341,19 +354,22 @@ namespace AutoLevel
             foreach (var blockItem in GetBlocksIt(AssetType.BlockAsset))
             {
                 var draw = true;
-                for (int d = 0; d < 6; d++)
+                if(blockAsset.blockLayer == 0)
                 {
-                    if (sides[d] == -1)
-                        continue;
-                    if (sides[d] != FillUtility.GetSide(blockItem.Item1.fill, d))
+                    for (int d = 0; d < 6; d++)
                     {
-                        draw = false;
-                        break;
+                        if (sides[d] == -1)
+                            continue;
+                        if (sides[d] != FillUtility.GetSide(blockItem.Item1.fill, d))
+                        {
+                            draw = false;
+                            break;
+                        }
                     }
                 }
                 if (draw)
                 {
-                    if (BlockButton(blockItem.Item1, blockItem.Item2))
+                    if (DoBlockButton(blockItem.Item1, blockItem.Item2))
                     {
                         var block = blockItem.Item1;
 
@@ -402,7 +418,7 @@ namespace AutoLevel
             else
                 foreach (var sideItem in BigBlockSidesIt(blockAsset.target))
                 {
-                    if (BlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
+                    if (DoBlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
                     {
                         connectingIndex = GetIndexInBigBlock((AssetBlock)sideItem.Item1.block).Item1;
                         connectingDir = sideItem.Item1.d;
@@ -533,7 +549,7 @@ namespace AutoLevel
             data.Resize(Vector3Int.Max(Vector3Int.one, size));
             foreach (var index in SpatialUtil.Enumerate(data.Size))
                 if (data[index] == null) data[index] = new SList<AssetBlock>();
-            blockAsset.ApplyField(nameof(SO.data));
+            blockAsset.ApplyField(nameof(BigBlockAssetSO.data));
             SceneView.RepaintAll();
         }
     }

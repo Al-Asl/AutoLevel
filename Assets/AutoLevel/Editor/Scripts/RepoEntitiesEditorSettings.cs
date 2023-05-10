@@ -4,7 +4,6 @@ using AlaslTools;
 
 namespace AutoLevel
 {
-
     public enum BlockEditMode
     {
         None,
@@ -40,11 +39,14 @@ namespace AutoLevel
         [System.Serializable]
         public class Settings
         {
-            public bool DrawSelfConnections;
-            public int MaxConnectionsDrawCount;
+            public bool             DrawSelfConnections;
+            public int              MaxConnectionsDrawCount;
+            [Space]
+            public KeyCode banConnectionKey         = KeyCode.Alpha1;
+            public KeyCode exclusiveConnectionKey   = KeyCode.Alpha3;
+
             [HideInInspector]
-            public BlockEditMode EditMode;
-            public bool DrawVariants;
+            public BlockEditMode    EditMode;
         }
 
         [SerializeField]
@@ -53,7 +55,6 @@ namespace AutoLevel
             {
                 DrawSelfConnections = true,
                 MaxConnectionsDrawCount = 30,
-                DrawVariants = true
             };
     }
 

@@ -6,6 +6,13 @@ using static AutoLevel.BlocksRepo.ActionsGroup;
 
 namespace AutoLevel
 {
+    [System.Serializable]
+    public class BlockResources
+    {
+        public Mesh mesh;
+        public Material material;
+    }
+
     public class BaseRepoException : System.Exception { }
 
     public class MissingLayersException : BaseRepoException 
@@ -149,7 +156,7 @@ namespace AutoLevel
                 public void Generate(
                     IEnumerable<BlockAsset>     blockAssets, 
                     List<IBlock>                outputList,
-                    BlocksDependencyProcessor   blocksDP)
+                    VariantByActionsGroups      varaintsByAG)
                 {
 
                     foreach (var block in BlockAsset.GetBlocksEnum(blockAssets))
@@ -157,7 +164,7 @@ namespace AutoLevel
                         if (block.bigBlock != null)
                             continue;
 
-                        blocksDP.AddFirstVariant(block.GetHashCode());
+                        varaintsByAG.AddFirstVariant(block.GetHashCode());
 
                         //apply Actions Groups
                         var actionsGroups = block.blockAsset.actionsGroups;
@@ -174,7 +181,7 @@ namespace AutoLevel
                                 {
                                     var newBlock = block.CreateCopy();
                                     newBlock.ApplyActions(GroupActions.actions);
-                                    blocksDP.AddBlockVariant(block.GetHashCode(), newBlock.GetHashCode(), GroupActions.actions);
+                                    varaintsByAG.AddBlockVariant(block.GetHashCode(), newBlock.GetHashCode(), GroupActions.actions);
                                     outputList.Add(newBlock);
                                 }
                             }
@@ -205,7 +212,7 @@ namespace AutoLevel
                 public void Generate(
                     IEnumerable<BigBlockAsset>  assets,
                     List<IBlock>                blocks,
-                    BlocksDependencyProcessor   blocksDP)
+                    VariantByActionsGroups      variantByAG)
                 {
 
                     foreach (var bigBlock in assets)
@@ -232,7 +239,7 @@ namespace AutoLevel
 
                         var internalConnections = new List<int>(connectionsMap.Select((pair) => pair.Key));
 
-                        GenerateBlocks(bigBlock, new List<BlockAction>(), blocks, blocksDP);
+                        GenerateBlocks(bigBlock, new List<BlockAction>(), blocks, variantByAG);
 
                         //generate the states from the actions groups
                         foreach (var group in bigBlock.actionsGroups)
@@ -244,7 +251,7 @@ namespace AutoLevel
                                 foreach (var conn in internalConnections)
                                     connectionsMap[conn] = idGen.GetNext();
 
-                                GenerateBlocks(bigBlock, actionsGroup.actions, blocks, blocksDP);
+                                GenerateBlocks(bigBlock, actionsGroup.actions, blocks, variantByAG);
                             }
                         }
                     }
@@ -254,7 +261,7 @@ namespace AutoLevel
                     BigBlockAsset               bigBlock,
                     List<BlockAction>           actions,
                     List<IBlock>                blocks,
-                    BlocksDependencyProcessor   blocksDP)
+                    VariantByActionsGroups      variantByAG)
                 {
 
                     var srcData = bigBlock.data;
@@ -306,7 +313,6 @@ namespace AutoLevel
                         }
                     }
 
-                    var actionsHash = ActionsUtility.GetActionsHash(actions);
                     var count = dstData.Size.x * dstData.Size.y * dstData.Size.z;
 
                     foreach (var index in SpatialUtil.Enumerate(dstData.Size))
@@ -328,7 +334,7 @@ namespace AutoLevel
                                 block.weightGroup = bigBlock.weightGroup;
                             block.weight /= count;
 
-                            blocksDP.AddBlockVariant(srcData[index][i].GetHashCode(), block.GetHashCode(), actionsHash);
+                            variantByAG.AddBlockVariant(srcData[index][i].GetHashCode(), block.GetHashCode(), actions);
                             blocks.Add(block);
                         }
                     }
@@ -359,15 +365,38 @@ namespace AutoLevel
                 }
             }
 
+            private class VariantByActionsGroups
+            {
+                private Dictionary<int, List<(int, List<BlockAction>)>> variants;
+
+                public VariantByActionsGroups()
+                {
+                    variants = new Dictionary<int, List<(int, List<BlockAction>)>>();
+                }
+
+                public void AddBlockVariant(int blockHash, int variantHash, List<BlockAction> actions)
+                {
+                    if (!variants.ContainsKey(blockHash))
+                        variants[blockHash] = new List<(int, List<BlockAction>)>();
+
+                    variants[blockHash].Add((variantHash, actions));
+                }
+
+                public void AddFirstVariant(int blockHash)
+                {
+                    variants[blockHash] = new List<(int, List<BlockAction>)> () { (blockHash, new List<BlockAction>()) };
+                }
+
+                public List<(int, List<BlockAction>)> GetVariants(int blockHash) => variants[blockHash];
+            }
+
             private class BlocksDependencyProcessor
             {
                 private Dictionary<int, List<(int, BlocksResolve)>>     baseUpperBlocks;
-                private Dictionary<int, List<(int, int)>>               blockToAGVaraints;
 
                 public BlocksDependencyProcessor()
                 {
                    baseUpperBlocks      = new Dictionary<int, List<(int, BlocksResolve)>>();
-                   blockToAGVaraints    = new Dictionary<int, List<(int, int)>>();
                 }
 
                 public void AddUpperBlock(int blockHash,int upperBlockHash, BlocksResolve resolve = BlocksResolve.Matching)
@@ -378,37 +407,24 @@ namespace AutoLevel
                     baseUpperBlocks[blockHash].Add((upperBlockHash, resolve));
                 }
 
-                public void AddBlockVariant(int blockHash, int variantHash, List<BlockAction> actions) 
-                    => AddBlockVariant(blockHash, variantHash, ActionsUtility.GetActionsHash(actions));
-
-                public void AddBlockVariant(int blockHash, int variantHash, int actionHash)
-                {
-                    if (!blockToAGVaraints.ContainsKey(blockHash))
-                        AddFirstVariant(blockHash);
-
-                    blockToAGVaraints[blockHash].Add((variantHash, actionHash));
-                }
-
-                public void AddFirstVariant(int blockHash)
-                {
-                    blockToAGVaraints[blockHash] = new List<(int, int)>() { (blockHash, ActionsUtility.EMPTY_ACTIONS_HASH) };
-                }
-
-                public Dictionary<int, List<int>> GenerateUpperBlocks(BiDirectionalList<int> indexToHash)
+                public Dictionary<int, List<int>> GenerateUpperBlocks(
+                    BiDirectionalList<int> indexToHash,
+                    VariantByActionsGroups variantByAG)
                 {
                     var upperBlocks = new Dictionary<int, List<int>>();
 
                     foreach (var pair in baseUpperBlocks)
                     {
-                        var bBlocks = blockToAGVaraints[pair.Key];
+                        var bBlocks = variantByAG.GetVariants(pair.Key);
 
                         foreach (var uKey in pair.Value)
                         {
-                            var uBlocks = blockToAGVaraints[uKey.Item1];
+                            var uBlocks = variantByAG.GetVariants(uKey.Item1);
 
                             foreach (var bBlock in bBlocks)
                                 foreach (var uBlock in uBlocks)
-                                    if (uKey.Item2 == BlocksResolve.AllToAll || bBlock.Item2 == uBlock.Item2)
+                                    if (uKey.Item2 == BlocksResolve.AllToAll || 
+                                        ActionsUtility.AreEquals(bBlock.Item2, uBlock.Item2))
                                     {
                                         if (!upperBlocks.ContainsKey(indexToHash.GetIndex(bBlock.Item1)))
                                             upperBlocks[indexToHash.GetIndex(bBlock.Item1)] = new List<int>();
@@ -421,7 +437,7 @@ namespace AutoLevel
                 }
             }
 
-            private Transform                   root;
+            private BlocksRepo                  repo;
             private Transform                   templates_root;
             private List<ActionsGroup>          actionsGroups;
 
@@ -467,7 +483,7 @@ namespace AutoLevel
                     layer == layerStartIndex.Count - 1 ? blocksCount : layerStartIndex[layer + 1]);
             }
 
-            public List<int[]>[] Connections { get; private set; }
+            public List<List<int>>[] Connections { get; private set; }
             /// <summary>
             /// [d][ga][gb] => ga_countlist
             /// </summary>
@@ -510,31 +526,42 @@ namespace AutoLevel
             public int GetWeightGroupIndex(string name) => weightGroups.GetIndex(name);
             public IEnumerable<int> GetBlocksPerWeightGroup(int group) => blocksPerWeightGroup[group];
 
-            public Runtime(Transform root, List<string> GroupsNames, List<string> WeightGroupsNames, List<ActionsGroup> actionsGroups)
+            static int groups_counter_pk = "block_repo_groups_counter".GetHashCode();
+            static int generate_blocks_pk = "block_repo_generate_blocks".GetHashCode();
+
+            public Runtime(BlocksRepo repo, List<string> GroupsNames, List<string> WeightGroupsNames, List<ActionsGroup> actionsGroups)
             {
                 groups = new BiDirectionalList<string>(GroupsNames);
                 weightGroups = new BiDirectionalList<string>(WeightGroupsNames);
 
                 this.actionsGroups = actionsGroups;
-                this.root = root;
+                this.repo = repo;
 
-                List<ConnectionsIds> BlockConnections = new List<ConnectionsIds>();
+                List<ConnectionsIds> BlockConnections       = new List<ConnectionsIds>();
+                List<(int, int, int)> BannedConnections     = new List<(int, int, int)>();
+                List<(int, int, int)> ExclusiveConnections  = new List<(int, int, int)>();
 
-                GenerateBlockData(BlockConnections);
-                GenerateConnections(BlockConnections);
+                GenerateBlockData(BlockConnections, BannedConnections, ExclusiveConnections);
+                GenerateConnections(BlockConnections, BannedConnections, ExclusiveConnections);
                 GenerateGroupCounter();
             }
 
-            private void GenerateBlockData(List<ConnectionsIds> BlockConnections)
+            private void GenerateBlockData(
+                List<ConnectionsIds>    BlockConnections,
+                List<(int, int, int)>   BannedConnections,
+                List<(int, int, int)>   ExclusiveConnections)
             {
-
 
                 var actionsToIndex = new Dictionary<int, int>();
                 for (int i = 0; i < actionsGroups.Count; i++)
                     actionsToIndex.Add(actionsGroups[i].name.GetHashCode(), i);
 
-                var blockAssets = root.GetComponentsInChildren<BlockAsset>();
-                var bigBlockAssets = root.GetComponentsInChildren<BigBlockAsset>();
+                var blockAssets = repo.GetComponentsInChildren<BlockAsset>();
+                var bigBlockAssets = new List<BigBlockAsset>(repo.GetComponentsInChildren<BigBlockAsset>());
+
+                foreach(var block in BlockAsset.GetBlocksEnum(blockAssets))
+                    if (block.bigBlock != null && !bigBlockAssets.Contains(block.bigBlock))
+                        bigBlockAssets.Add(block.bigBlock);
 
                 LayersCount = GetLayersCount(blockAssets);
 
@@ -543,21 +570,22 @@ namespace AutoLevel
                 //Empty and Solid
                 allBlocks.Add(new StandaloneBlock(GetGroupHash(1), GetWeightGroupHash(1).GetHashCode(), 255, 1f, 0));
                 for (int i = 0; i < LayersCount; i++)
-                    allBlocks.Add(new StandaloneBlock(GetGroupHash(0), GetWeightGroupHash(0).GetHashCode(),   0, 1f, i));
+                    allBlocks.Add(new StandaloneBlock(GetGroupHash(0), GetWeightGroupHash(0).GetHashCode(), 0, 1f, i));
 
                 var blocksDP = new BlocksDependencyProcessor();
+                var variantsByAG = new VariantByActionsGroups();
 
                 if (LayersCount > 1)
                 {
                     //Solid Base Layer
                     blocksDP.AddUpperBlock(allBlocks[0].GetHashCode(), allBlocks[2].GetHashCode());
-                    blocksDP.AddFirstVariant(allBlocks[0].GetHashCode());
+                    variantsByAG.AddFirstVariant(allBlocks[0].GetHashCode());
                     //Empty Layers
                     for (int i = 0; i < LayersCount; i++)
                     {
-                        if(i < LayersCount - 1)
+                        if (i < LayersCount - 1)
                             blocksDP.AddUpperBlock(allBlocks[i + 1].GetHashCode(), allBlocks[i + 2].GetHashCode());
-                        blocksDP.AddFirstVariant(allBlocks[i + 1].GetHashCode());
+                        variantsByAG.AddFirstVariant(allBlocks[i + 1].GetHashCode());
                     }
                 }
 
@@ -576,11 +604,11 @@ namespace AutoLevel
                 }
 
                 var blockAssetGenerator = new BlockAssetGenerator(actionsGroups, actionsToIndex);
-                blockAssetGenerator.Generate(blockAssets, allBlocks, blocksDP);
+                blockAssetGenerator.Generate(blockAssets, allBlocks, variantsByAG);
 
                 var idGen = ConnectionsUtility.CreateIDGenerator(BlockAsset.GetBlocksEnum(blockAssets));
                 var bigBlockAssetGenerator = new BigBlockAssetGenerator(actionsGroups, actionsToIndex, idGen);
-                bigBlockAssetGenerator.Generate(bigBlockAssets, allBlocks, blocksDP);
+                bigBlockAssetGenerator.Generate(bigBlockAssets, allBlocks, variantsByAG);
 
                 layerStartIndex = new List<int>();
                 allBlocks.Sort((a, b) => a.layerSettings.layer.CompareTo(b.layerSettings.layer));
@@ -590,7 +618,7 @@ namespace AutoLevel
                 for (int i = 0; i < allBlocks.Count; i++)
                 {
                     var block = allBlocks[i];
-                    if(block.layerSettings.layer != currentLayer)
+                    if (block.layerSettings.layer != currentLayer)
                     {
                         currentLayer++;
                         layerStartIndex.Add(i);
@@ -604,7 +632,7 @@ namespace AutoLevel
                 for (int layer = 0; layer < LayersCount; layer++)
                 {
                     var range = GetLayerRange(layer, allBlocks.Count);
-                    allBlocks.Sort(range.x,range.y - range.x, groupComparer);
+                    allBlocks.Sort(range.x, range.y - range.x, groupComparer);
                 }
 
                 groupStartIndex = new List<List<int>>();
@@ -632,12 +660,12 @@ namespace AutoLevel
 
                 Dictionary<int, int> wgHashToIndex = HashToIndexLookup(weightGroups);
 
-                Resources               = new List<BlockResources>(allBlocks.Count);
-                gameObjecstsTemplates   = new List<BlockGOTemplate>();
-                BlocksHash              = new BiDirectionalList<int>();
-                weights                 = new List<float>(allBlocks.Count);
-                blocksPlacement         = new List<BlockPlacement>(allBlocks.Count);
-                blocksPerWeightGroup    = new List<int>[WeightGroupsCount];
+                Resources = new List<BlockResources>(allBlocks.Count);
+                gameObjecstsTemplates = new List<BlockGOTemplate>();
+                BlocksHash = new BiDirectionalList<int>();
+                weights = new List<float>(allBlocks.Count);
+                blocksPlacement = new List<BlockPlacement>(allBlocks.Count);
+                blocksPerWeightGroup = new List<int>[WeightGroupsCount];
 
                 for (int i = 0; i < WeightGroupsCount; i++)
                     blocksPerWeightGroup[i] = new List<int>();
@@ -647,7 +675,7 @@ namespace AutoLevel
                     var block = allBlocks[i];
                     BlocksHash.Add(block.GetHashCode());
                     Resources.Add(block.blockResources);
-                    gameObjecstsTemplates.Add(templateGenerator.Generate(block.gameObject,block.actions));
+                    gameObjecstsTemplates.Add(templateGenerator.Generate(block.gameObject, block.actions));
 
                     BlockConnections.Add(block.compositeIds);
                     weights.Add(block.weight);
@@ -656,14 +684,97 @@ namespace AutoLevel
                     blocksPlacement.Add(block.layerSettings.placement);
                 }
 
-                upperBlocks = blocksDP.GenerateUpperBlocks(BlocksHash);
+                GenerateCustomConnections(repo.bannedConnections, variantsByAG, BannedConnections);
+                GenerateCustomConnections(repo.exclusiveConnections, variantsByAG, ExclusiveConnections);
+
+                upperBlocks = blocksDP.GenerateUpperBlocks(BlocksHash, variantsByAG);
             }
 
-            private void GenerateConnections(List<ConnectionsIds> BlockConnections)
+            private void GenerateCustomConnections(
+                List<Connection>        connections,
+                VariantByActionsGroups  variantsByAG,
+                List<(int, int, int)>   output)
+            {
+                foreach (var conn in connections)
+                {
+                    if (!BlockUtility.IsActive(conn.a.block) || !BlockUtility.IsActive(conn.b.block)) continue;
+
+                    var a_vars = variantsByAG.GetVariants(conn.a.block.GetHashCode());
+                    var b_vars = variantsByAG.GetVariants(conn.b.block.GetHashCode());
+                    foreach (var a_var in a_vars)
+                    {
+                        var a_side = ActionsUtility.TransformFace(conn.a.d, a_var.Item2);
+                        foreach (var b_var in b_vars)
+                        {
+                            var b_side = ActionsUtility.TransformFace(conn.b.d, b_var.Item2);
+                            if (a_side == Directions.opposite[b_side])
+                                output.Add((a_side, BlocksHash.GetIndex(a_var.Item1), BlocksHash.GetIndex(b_var.Item1)));
+                        }
+                    }
+                }
+            }
+
+            private void GenerateConnections(
+                List<ConnectionsIds>    BlockConnections,
+                List<(int, int, int)>   BannedConnections,
+                List<(int, int, int)>   ExclusiveConnections)
             {
                 Profiling.StartTimer(generate_blocks_pk);
+
                 Connections = ConnectionsUtility.GetAdjacencyList(BlockConnections);
+
+                Dictionary<int, HashSet<int>[]> exclusiveTarget = new Dictionary<int, HashSet<int>[]>();
+
+                foreach (var conn in ExclusiveConnections)
+                {
+                    var d = conn.Item1;
+
+                    if (!exclusiveTarget.ContainsKey(conn.Item2))
+                        exclusiveTarget[conn.Item2] = new HashSet<int>[6];
+                    if (exclusiveTarget[conn.Item2][d] == null)
+                        exclusiveTarget[conn.Item2][d] = new HashSet<int>(Connections[d][conn.Item2]);
+                }
+
+                foreach(var target in exclusiveTarget)
+                    for (int d = 0; d < 6; d++)
+                        if (target.Value[d] != null) Connections[d][target.Key].Clear();
+
+                foreach (var conn in ExclusiveConnections)
+                {
+                    var d = conn.Item1;
+                    var od = Directions.opposite[conn.Item1];
+
+                    if (exclusiveTarget[conn.Item2][d].Contains(conn.Item3))
+                    {
+                        Connections[d][conn.Item2].Add(conn.Item3);
+                        if (!Connections[od][conn.Item3].Contains(conn.Item2))
+                            Connections[od][conn.Item3].Add(conn.Item2);
+                        exclusiveTarget[conn.Item2][d].Remove(conn.Item3);
+                    }
+                }
+
+                foreach(var pair in exclusiveTarget)
+                {
+                    for (int d = 0; d < 6; d++)
+                    {
+                        var od = Directions.opposite[d];
+                        if (pair.Value[d] != null)
+                            foreach(var block in pair.Value[d])
+                                Connections[od][block].Remove(pair.Key);
+                    }
+                }
+
+                foreach (var conn in BannedConnections)
+                {
+                    var d = conn.Item1;
+                    var od = Directions.opposite[conn.Item1];
+
+                    Connections[d][conn.Item2].Remove(conn.Item3);
+                    Connections[od][conn.Item3].Remove(conn.Item2);
+                }
+
                 Profiling.LogAndRemoveTimer($"time to generate connections of {Resources.Count} ", generate_blocks_pk);
+
             }
 
             private void GenerateGroupCounter()
@@ -706,7 +817,7 @@ namespace AutoLevel
                                 var conn = conn_d[group_a.x + a];
                                 var count = 0;
                                 for (int b = group_b.x; b < group_b.y; b++)
-                                    if (conn.BinarySearch(b) != -1)
+                                    if (conn.BinarySearch(b) > -1)
                                         count++;
                                 counter[a] = count;
                             }

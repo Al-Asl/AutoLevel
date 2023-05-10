@@ -37,6 +37,14 @@ namespace AutoLevel
             return m;
         }
 
+        public static bool IsActive(IBlock block)
+        {
+            if (!block.hasGameObject) return true;
+            if (block.gameObject.activeInHierarchy) return true;
+            if (block.bigBlock != null && block.bigBlock.gameObject.activeInHierarchy) return true;
+            return false;
+        }
+
         public static int GetSideCompositeId(IBlock block, int side)
         {
             return new XXHash().

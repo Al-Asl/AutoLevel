@@ -13,20 +13,7 @@ namespace AutoLevel
     [CustomEditor(typeof(BlockAsset))]
     public class BlockAssetEditor : BaseRepoEntityEditor
     {
-        public class SO : BaseSO<BlockAsset>
-        {
-            public int group;
-            public int weightGroup;
-
-            public List<int> actionsGroups;
-            public List<BlockAsset.VariantDesc> variants;
-
-            public SO(SerializedObject serializedObject) : base(serializedObject) { }
-            public SO(Object target) : base(target) { }
-        }
-
-
-        private SO blockAsset;
+        private BlockAssetSO blockAsset;
         [SerializeField]
         private int selected;
         private List<BlockAsset.VariantDesc> variants       => blockAsset.variants;
@@ -49,7 +36,7 @@ namespace AutoLevel
 
         protected override void OnEnable()
         {
-            blockAsset = new SO(target);
+            blockAsset = new BlockAssetSO(target);
 
             base.OnEnable();
 
@@ -101,7 +88,7 @@ namespace AutoLevel
             if(EditorGUI.EndChangeCheck())
             {
                 blockAsset.group = allGroups[group].GetHashCode();
-                blockAsset.ApplyField(nameof(SO.group));
+                blockAsset.ApplyField(nameof(BlockAssetSO.group));
             }
 
             EditorGUI.BeginChangeCheck();
@@ -112,21 +99,36 @@ namespace AutoLevel
             if (EditorGUI.EndChangeCheck())
             {
                 blockAsset.weightGroup = allWeightGroups[weightGroup].GetHashCode();
-                blockAsset.ApplyField(nameof(SO.weightGroup));
+                blockAsset.ApplyField(nameof(BlockAssetSO.weightGroup));
             }
 
             EditorGUILayout.Space();
 
+            if (selectedVar.bigBlock != null)
+            {
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.HelpBox("Some features are disabled because this variant is part of a big block", MessageType.Info);
+                if (GUILayout.Button(new GUIContent(handleRes.detatch_icon,"Detach from Big Block"),handleRes.gui_button_style))
+                    DetachFromBigBlock(selected);
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.Space();
+
+            EditorGUI.BeginDisabledGroup(selectedVar.bigBlock != null);
+
             EditorGUI.BeginChangeCheck();
-            var actionsgroupsExpand = blockAsset.GetFieldExpand(nameof(SO.actionsGroups));
+            var actionsgroupsExpand = blockAsset.GetFieldExpand(nameof(BlockAssetSO.actionsGroups));
             actionsgroupsExpand = EditorGUILayout.BeginFoldoutHeaderGroup(actionsgroupsExpand, "Actions Groups");
             EditorGUILayout.EndFoldoutHeaderGroup();
 
             if (EditorGUI.EndChangeCheck())
-                blockAsset.SetFieldExpand(nameof(SO.actionsGroups), actionsgroupsExpand);
+                blockAsset.SetFieldExpand(nameof(BlockAssetSO.actionsGroups), actionsgroupsExpand);
 
             if (actionsgroupsExpand)
                 actionsList.Draw(actionsGroups);
+
+            EditorGUI.EndDisabledGroup();
 
             EditorGUILayout.Space();
 
@@ -136,7 +138,7 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            EditorGUI.BeginDisabledGroup(selected == 0);
+            EditorGUI.BeginDisabledGroup(selected == 0 || selectedVar.bigBlock != null);
             variantsReordable.list = selectedVar.actions;
             variantsReordable.DoLayoutList();
             EditorGUI.EndDisabledGroup();
@@ -153,11 +155,12 @@ namespace AutoLevel
             selectedVar.sideIds.backward    = EditorGUILayout.IntField("Back", selectedVar.sideIds.backward);
 
             EditorGUILayout.Space();
-
             
             selectedVar.weight = EditorGUILayout.FloatField("Weight", selectedVar.weight);
 
             EditorGUILayout.Space();
+
+            EditorGUI.BeginDisabledGroup(selectedVar.bigBlock != null);
 
             var layerSettings = selectedVar.layerSettings;
 
@@ -168,6 +171,8 @@ namespace AutoLevel
                 layerSettings.placement = (BlockPlacement)EditorGUILayout.EnumPopup("Block Placement", layerSettings.placement);
             }
 
+            EditorGUI.EndDisabledGroup();
+
             if (EditorGUI.EndChangeCheck() || variantsReordableChanged)
             {
                 ApplyVariants();
@@ -177,21 +182,64 @@ namespace AutoLevel
 
             EditorGUILayout.Space();
 
-            if (selectedVar.bigBlock != null && GUILayout.Button("Deattach From Big Block"))
-                DetachFromBigBlock(selected);
+
+            EditorGUILayout.BeginHorizontal();
+
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button(new GUIContent(handleRes.remove_layer_icon, "Reset Layer Settings"), handleRes.gui_button_style))
+            {
+                selectedVar.layerSettings = new LayerSettings();
+                ApplyVariants();
+                SceneView.RepaintAll();
+            }
+
+            if (GUILayout.Button(new GUIContent(handleRes.remove_multi_connection_icon, "Reset Connections"), handleRes.gui_button_style))
+            {
+                selectedVar.sideIds = default;
+                ApplyVariants();
+                SceneView.RepaintAll();
+            }
+
+            if (GUILayout.Button(new GUIContent(handleRes.remove_banned_connection_icon, "Remove banned Connections"), handleRes.gui_button_style))
+                RemoveBannedConnections();
+
+            if (GUILayout.Button(new GUIContent(handleRes.remove_exclusive_connection_icon, "Remove exclusive Connections"), handleRes.gui_button_style))
+                RemoveExclusiveConnections();
+
+            GUILayout.FlexibleSpace();
+
+            EditorGUILayout.EndHorizontal();
+
+            if (selected == 0)
+            {
+                EditorGUILayout.BeginHorizontal();
+
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button(new GUIContent(handleRes.layer_to_variant_icon, "Layers To Variants"), handleRes.gui_button_style))
+                    ApplyLayersToVariants();
+
+                if (GUILayout.Button(new GUIContent(handleRes.weight_to_variant_icon,"Weight To Variants"),handleRes.gui_button_style))
+                    ApplyWeightToVariants();
+
+                if (GUILayout.Button(new GUIContent(handleRes.multi_connection_to_variant_icon, "Connections To Variants"), handleRes.gui_button_style))
+                    ApplyIDsToVariants();
+
+                if (GUILayout.Button(new GUIContent(handleRes.banned_connection_to_variant_icon, "Banned Connections To Variants"), handleRes.gui_button_style))
+                    ApplyBannedConnectionsToVariants();
+
+                if (GUILayout.Button(new GUIContent(handleRes.exclusive_connection_to_variant_icon, "Exclusive Connections To Variants"), handleRes.gui_button_style))
+                    ApplyExclusiveConnectionsToVariants();
+
+                GUILayout.FlexibleSpace();
+
+                EditorGUILayout.EndHorizontal();
+            }
 
             EditorGUILayout.Space();
 
             EditorGUILayout.EndVertical();
-
-            if (selected == 0)
-            {
-                if (GUILayout.Button("Connection To Variants"))
-                    ApplyConnectionsToVariants();
-
-                if (GUILayout.Button("Weight To Variants"))
-                    ApplyWeightToVariants();
-            }
         }
 
         protected override void SceneGUI()
@@ -208,10 +256,9 @@ namespace AutoLevel
 
             DoBlockToBigBlockConnectionsControls();
 
-            DrawConnections(activeConnections);
+            DrawConnections();
 
-            if (settings.DrawVariants)
-                DoMyBlocksMoveHandles();
+            DoMyBlocksMoveHandles();
 
             DoMyBlocks();
 
@@ -234,9 +281,9 @@ namespace AutoLevel
         private void InitActionsGroups()
         {
             actionsList = new HashedFlagList(
-                repo.GetActionsGroupsNames(),
+                repo.target.GetActionsGroupsNames(),
                 actionsGroups,
-                () => blockAsset.ApplyField(nameof(SO.actionsGroups)));
+                () => blockAsset.ApplyField(nameof(BlockAssetSO.actionsGroups)));
         }
         private void CreateVariantsReordable()
         {
@@ -269,10 +316,10 @@ namespace AutoLevel
         private void DetachFromBigBlock(int index)
         {
             DetachFromBigBlock(new AssetBlock(index, blockAsset.target));
-            blockAsset.UpdateField(nameof(SO.variants));
+            blockAsset.UpdateField(nameof(BlockAssetSO.variants));
             GenerateConnections(activeConnections);
-
         }
+
         private void SetSelectedVariant(int index)
         {
             if (index != selected)
@@ -282,7 +329,7 @@ namespace AutoLevel
                 so.ApplyModifiedProperties();
             }
         }
-        private void ApplyConnectionsToVariants()
+        private void ApplyIDsToVariants()
         {
             var src = variants[selected].sideIds;
             for (int i = 0; i < variants.Count; i++)
@@ -314,6 +361,14 @@ namespace AutoLevel
             }
             ApplyVariants();
         }
+        private void ApplyLayersToVariants()
+        {
+            var src = variants[selected].layerSettings;
+            for (int i = 0; i < variants.Count; i++)
+                variants[i].layerSettings = src;
+
+            ApplyVariants();
+        }
         private void ApplyWeightToVariants()
         {
             var src = variants[selected].weight;
@@ -321,6 +376,56 @@ namespace AutoLevel
                 variants[i].weight = src;
 
             ApplyVariants();
+        }
+        private void RemoveBannedConnections()
+        {
+            var toRemove = new List<Connection>(GetBannedConnectionsIt(new AssetBlock(selected, blockAsset.target)));
+            foreach (var conn in toRemove)
+                repo.bannedConnections.Remove(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.bannedConnections));
+        }
+        private void RemoveExclusiveConnections()
+        {
+            var toRemove = new List<Connection>(GetExclusiveConnectionsIt(new AssetBlock(selected, blockAsset.target)));
+            foreach (var conn in toRemove)
+                repo.exclusiveConnections.Remove(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.exclusiveConnections));
+        }
+        private void ApplyBannedConnectionsToVariants()
+        {
+            ApplyCustomConnectionToVariant(repo.bannedConnections, GetBannedConnectionsIt);
+            repo.ApplyField(nameof(BlocksRepoSO.bannedConnections));
+        }
+        private void ApplyExclusiveConnectionsToVariants()
+        {
+            ApplyCustomConnectionToVariant(repo.exclusiveConnections, GetExclusiveConnectionsIt);
+            repo.ApplyField(nameof(BlocksRepoSO.exclusiveConnections));
+        }
+        private void ApplyCustomConnectionToVariant(
+            List<Connection>    connections,
+            System.Func<AssetBlock,IEnumerable<Connection>> GetvariantConnections)
+        {
+            var src = new List<Connection>(GetvariantConnections(new AssetBlock(selected, blockAsset.target)));
+            var dst = new List<Connection>();
+            for (int i = 0; i < blockAsset.variants.Count; i++)
+                dst.AddRange(GetvariantConnections(new AssetBlock(i, blockAsset.target)));
+
+            foreach(var conn in dst)
+                connections.Remove(conn);
+            dst.Clear();
+
+            for (int i = 0; i < variants.Count; i++)
+            {
+                if (i == selected)
+                    continue;
+
+                foreach (var conn in src)
+                    dst.Add(new Connection(
+                        new BlockSide(new AssetBlock(i, blockAsset.target), 
+                        ActionsUtility.TransformFace(conn.a.d, variants[i].actions)), conn.b));
+            }
+
+            connections.AddRange(dst);
         }
 
         private void DoBlockToBigBlockConnectionsControls()
@@ -363,7 +468,7 @@ namespace AutoLevel
             {
                 foreach (var blockItem in AssetBlocksIt(blockAsset.target))
                     if (blockItem.Item1.VariantIndex != selected)
-                        if (BlockButton(blockItem.Item1, blockItem.Item2))
+                        if (DoBlockButton(blockItem.Item1, blockItem.Item2))
                         {
                             SetSelectedVariant(blockItem.Item1.VariantIndex);
                             Repaint();
@@ -378,7 +483,7 @@ namespace AutoLevel
             {
                 foreach (var sideitem in BlockSidesIt(target, GetPositionFromBlockAsset(target)))
                 {
-                    if (BlockSideButton(sideitem.Item1, sideitem.Item2, 0.9f))
+                    if (DoBlockSideButton(sideitem.Item1, sideitem.Item2, 0.9f))
                     {
                         SceneView.lastActiveSceneView.ShowNotification(
                         new GUIContent("Use Shift key to select specific face, and use right click to cancel"), 1f);
@@ -467,7 +572,7 @@ namespace AutoLevel
             {
                 if (block.Item1.layerSettings.layer == targetLayer)
                 {
-                    if (BlockButton(block.Item1, block.Item2))
+                    if (DoBlockButton(block.Item1, block.Item2))
                     {
                         bool contain = layerSettings.dependencies.Contains(block.Item1);
                         if (contain)
@@ -475,7 +580,7 @@ namespace AutoLevel
                         else
                             layerSettings.dependencies.Add(block.Item1);
 
-                        blockAsset.ApplyField(nameof(SO.variants));
+                        blockAsset.ApplyField(nameof(BlockAssetSO.variants));
                     }
                 }
             }
@@ -501,6 +606,17 @@ namespace AutoLevel
             if (GUILayout.Button("+", GUILayout.Width(buttonSize)))
             {
                 GenericMenu addVariantMenu = new GenericMenu();
+
+                addVariantMenu.AddItem(new GUIContent("Nothing"), false, () =>
+                {
+                    var variant = new BlockAsset.VariantDesc(variants[selected]);
+                    variant.position_editor_only += Vector3.forward * 2f;
+                    variants.Add(variant);
+                    SetSelectedVariant(variants.Count - 1);
+                    addVariantMenu = null;
+                    ApplyVariants();
+                });
+
                 for (int i = 0; i < 7; i++)
                 {
                     var action = (BlockAction)i;
@@ -563,13 +679,12 @@ namespace AutoLevel
                     var id = GUIUtility.GetControlID("Context".GetHashCode(), FocusType.Keyboard); ;
                     HandleUtility.AddControl(id, -1);
                 }
-
             }
         }
 
         private void ApplyVariants()
         {
-            blockAsset.ApplyField(nameof(SO.variants));
+            blockAsset.ApplyField(nameof(BlockAssetSO.variants));
             GenerateConnections(activeConnections);
         }
     }

@@ -27,11 +27,11 @@ namespace AutoLevel
 #endif
             public VariantDesc() 
             {
-                actions         = new List<BlockAction>();
-                sideIds         = new ConnectionsIds();
-                fill            = 0;
-                weight          = 1f;
-                layerSettings   = new LayerSettings(0);
+                actions             = new List<BlockAction>();
+                sideIds             = new ConnectionsIds();
+                fill                = 0;
+                weight              = 1f;
+                layerSettings       = new LayerSettings(0);
             }
 
             public VariantDesc(VariantDesc other)
@@ -39,11 +39,11 @@ namespace AutoLevel
 #if UNITY_EDITOR
                 position_editor_only = other.position_editor_only;
 #endif
-                actions         = new List<BlockAction>(other.actions);
-                fill            = other.fill;
-                sideIds         = other.sideIds;
-                weight          = other.weight;
-                layerSettings   = new LayerSettings(other.layerSettings);
+                actions             = new List<BlockAction>(other.actions);
+                fill                = other.fill;
+                sideIds             = other.sideIds;
+                weight              = other.weight;
+                layerSettings       = new LayerSettings(other.layerSettings);
             }
         }
 

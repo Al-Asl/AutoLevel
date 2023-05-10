@@ -36,6 +36,7 @@ namespace AutoLevel
     [System.Serializable]
     public struct AssetBlock : IBlock
     {
+        public bool Valid                       => m_blockAsset != null && m_variantindex < m_blockAsset.variants.Count;
         public BlockAsset.VariantDesc Variant   => m_blockAsset.variants[m_variantindex];
         public int VariantIndex                 => m_variantindex;
 

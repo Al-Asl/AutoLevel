@@ -36,12 +36,12 @@ namespace AutoLevel
                 return index++;
             }
         }
-        public static List<int[]>[] GetAdjacencyList(List<ConnectionsIds> connectionsIds)
+        public static List<List<int>>[] GetAdjacencyList(List<ConnectionsIds> connectionsIds)
         {
-            var alist = new List<int[]>[6];
+            var alist = new List<List<int>>[6];
             for (int d = 0; d < 6; d++)
             {
-                var list = new List<int[]>(connectionsIds.Count);
+                var list = new List<List<int>>(connectionsIds.Count);
                 list.Fill(connectionsIds.Count, () => null);
                 alist[d] = list;
             }
@@ -57,13 +57,13 @@ namespace AutoLevel
                         if (block[d] == connectionsIds[k][opposite[d]])
                             conn.Add(k);
                     }
-                    alist[d][i] = conn.ToArray();
+                    alist[d][i] = conn;
                 }
             }
 
             return alist;
         }
-        public static void GetConnectionsList<T>(IEnumerable<T> blocks, List<Connection> connections) where T : IBlock
+        public static void GetConnectionsList(IEnumerable<AssetBlock> blocks, List<Connection> connections) 
         {
             var i = 0;
             foreach (var src in blocks)

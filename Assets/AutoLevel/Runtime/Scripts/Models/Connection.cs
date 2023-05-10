@@ -4,41 +4,46 @@ namespace AutoLevel
 {
     using static Directions;
 
+    [System.Serializable]
     public class Connection
     {
-        public IBlock a, b;
-        public int d;
+        public bool Valid   => a.block.Valid && b.block.Valid;
+        public int d        => a.d;
 
-        public Connection(IBlock a, IBlock b, int d)
+        public BlockSide a, b;
+
+        public Connection(AssetBlock a, AssetBlock b, int d)
+        {
+            this.a = new BlockSide(a, d);
+            this.b = new BlockSide(b, opposite[d]);
+        }
+
+        public Connection(BlockSide a, BlockSide b)
         {
             this.a = a;
             this.b = b;
-            this.d = d;
         }
 
         public override int GetHashCode()
         {
             var ha = a.GetHashCode(); var hb = b.GetHashCode();
             if (ha > hb)
-                return new XXHash().Append(a.GetHashCode()).Append(b.GetHashCode()).Append(d);
+                return new XXHash().Append(a.GetHashCode()).Append(b.GetHashCode()).Append(a.d);
             else
-                return new XXHash().Append(b.GetHashCode()).Append(a.GetHashCode()).Append(opposite[d]);
+                return new XXHash().Append(b.GetHashCode()).Append(a.GetHashCode()).Append(b.d);
         }
 
         public override bool Equals(object obj)
         {
             if (obj is Connection)
-            {
                 return (Connection)obj == this;
-            }
             else
                 return false;
         }
 
         public static bool operator ==(Connection a, Connection b)
         {
-            return (a.a == b.a && a.b == b.b && a.d == b.d) ||
-                (a.a == b.b && a.b == b.a && a.d == opposite[b.d]);
+            return (a.a == b.a && a.b == b.b) || (a.b == b.a && a.a == b.b);
         }
 
         public static bool operator !=(Connection a, Connection b)
@@ -46,9 +51,14 @@ namespace AutoLevel
             return !(a == b);
         }
 
-        public bool Contain(IBlock block)
+        public bool Contain(AssetBlock block)
         {
-            return a == block || b == block;
+            return a.block == block || b.block == block;
+        }
+
+        public bool Contain(BlockAsset block)
+        {
+            return a.block.blockAsset == block || b.block.blockAsset == block;
         }
     }
 

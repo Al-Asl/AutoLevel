@@ -6,13 +6,13 @@ namespace AutoLevel
 {
     public enum BlockAction
     {
-        RotateX,
-        RotateY,
-        RotateZ,
-        MirrorX,
-        MirrorY,
-        MirrorZ,
-        Flip
+        RotateX = 0,
+        RotateY = 1,
+        RotateZ = 2,
+        MirrorX = 3,
+        MirrorY = 4,
+        MirrorZ = 5,
+        Flip    = 6
     }
 
     public static class ActionsUtility
@@ -21,11 +21,25 @@ namespace AutoLevel
 
         private static readonly string[] action_prefix = { "_rx", "_ry", "_rz", "_mx", "_my", "_mz", "_f" };
 
+        private static int[][] faceActions = new int[][]
+        {
+           new int[] { 0, 2, 4, 3, 5, 1 }, //Rotate X
+           new int[] { 5, 1, 0, 2, 4, 3 }, //Rotate Y
+           new int[] { 1, 3, 2, 4, 0, 5 }, //Rotate Z
+           new int[] { 3, 1, 2, 0, 4, 5 }, //Mirror X
+           new int[] { 0, 4, 2, 3, 1, 5 }, //Mirror Y
+           new int[] { 0, 1, 5, 3, 4, 2 }, //Mirror Z
+           new int[] { 0, 1, 2, 3, 4, 5 }, //Flip
+        };
+
         public static bool AreEquals(List<BlockAction> a, List<BlockAction>b)
         {
+            if (a == null && b == null) return true;
+            if (a == null || b == null) return false;
             if (a.Count != b.Count) return false;
             for (int i = 0; i < a.Count; i++)
                 if (a[i] != b[i]) return false;
+
             return true;
         }
 
@@ -45,49 +59,26 @@ namespace AutoLevel
             return builder.ToString();
         }
 
+        public static int TransformFace(int d, IEnumerable<BlockAction> actions)
+        {
+            foreach (var action in actions)
+                d = faceActions[(int)action][d];
+            return d;
+        }
+
+        public static int TransformFace(int d, BlockAction action)
+        {
+            return faceActions[(int)action][d];
+        }
+
         public static ConnectionsIds ApplyAction(ConnectionsIds sides, BlockAction action)
         {
-            int temp = 0;
-            switch (action)
-            {
-                case BlockAction.RotateX:
-                    temp = sides.down;
-                    sides.down = sides.forward;
-                    sides.forward = sides.up;
-                    sides.up = sides.backward;
-                    sides.backward = temp;
-                    break;
-                case BlockAction.RotateY:
-                    temp = sides.left;
-                    sides.left = sides.backward;
-                    sides.backward = sides.right;
-                    sides.right = sides.forward;
-                    sides.forward = temp;
-                    break;
-                case BlockAction.RotateZ:
-                    temp = sides.left;
-                    sides.left = sides.up;
-                    sides.up = sides.right;
-                    sides.right = sides.down;
-                    sides.down = temp;
-                    break;
-                case BlockAction.MirrorX:
-                    temp = sides.left;
-                    sides.left = sides.right;
-                    sides.right = temp;
-                    break;
-                case BlockAction.MirrorY:
-                    temp = sides.down;
-                    sides.down = sides.up;
-                    sides.up = temp;
-                    break;
-                case BlockAction.MirrorZ:
-                    temp = sides.backward;
-                    sides.backward = sides.forward;
-                    sides.forward = temp;
-                    break;
-            }
-            return sides;
+            ConnectionsIds res = default;
+
+            for (int d = 0; d < 6; d++)
+                res[TransformFace(d, action)] = sides[d];
+
+            return res;
         }
 
         public static int ApplyAction(int fill, BlockAction action)

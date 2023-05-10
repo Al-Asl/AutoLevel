@@ -33,53 +33,31 @@ namespace AutoLevel
             private string data;
         }
 
-        protected struct BlockSide
-        {
-            public int id => block.baseIds[d];
-            public int compsiteId => block[d];
-
-            public IBlock block;
-            public int d;
-
-            public BlockSide(IBlock block, int d)
-            {
-                this.block = block;
-                this.d = d;
-            }
-
-            public static bool operator == (BlockSide a,BlockSide b)
-            {
-                return a.block.GetHashCode() == b.block.GetHashCode() && a.d == b.d;
-            }
-
-            public static bool operator !=(BlockSide a, BlockSide b)
-            {
-                return a.block.GetHashCode() != b.block.GetHashCode() || a.d != b.d;
-            }
-        }
-
         protected static InitializeCommand initializeCommand = new InitializeCommand();
 
         protected HandleResources handleRes;
 
-        private bool settingsToggle;
-        protected Editor settingsEditor;
-        protected RepoEntitiesEditorSettings.Settings settings => settingsSO.settings;
-        protected RepoEntitiesEditorSettingsSO settingsSO;
+        private bool        settingsToggle;
+        protected Editor    settingsEditor;
+        protected RepoEntitiesEditorSettings.Settings   settings => settingsSO.settings;
+        protected RepoEntitiesEditorSettingsSO          settingsSO;
 
-        protected List<Connection> activeConnections;
-        protected List<MonoBehaviour> activeRepoEntities;
-        protected List<MonoBehaviour> allRepoEntities;
-        protected BlocksRepo repo;
+        protected List<Connection>      activeConnections;
+        protected List<MonoBehaviour>   activeRepoEntities;
+        protected List<MonoBehaviour>   allRepoEntities;
+        protected BlocksRepoSO          repo;
 
         protected IEnumerable<BlockAsset> activeBlockAssets => activeRepoEntities.Where((e) => e is BlockAsset).Cast<BlockAsset>();
         protected IEnumerable<BlockAsset> allBlockAssets => allRepoEntities.Where((e) => e is BlockAsset).Cast<BlockAsset>();
 
-        private bool isInitialized;
+        private bool        isInitialized;
         private const float cancelThreshold = 0.15f;
-        private double cancelStart;
-        protected bool shiftHold;
-        protected bool cancelDown;
+        private double      cancelStart;
+        protected bool      cancelDown;
+
+        protected bool      exclusiveConnectionKey;
+        protected bool      bannConnectionKey;
+        protected bool      additonalConnectionKey;
 
         private Camera camera;
         private Plane[] planes;
@@ -88,10 +66,8 @@ namespace AutoLevel
         protected static Color BlockSideHoverColor = Color.white * 0.7f;
         protected static Color BlockSideActiveColor = Color.white * 0.7f;
 
-        private Texture removeIcon;
-
-        private List<GameObject> assetBlocksGO = new List<GameObject>();
-        private Dictionary<int, Material> assetBlocksMat = new Dictionary<int, Material>();
+        private List<GameObject>            assetBlocksGO = new List<GameObject>();
+        private Dictionary<int, Material>   assetBlocksMat = new Dictionary<int, Material>();
 
         protected string[] allGroups;
         protected string[] allWeightGroups;
@@ -110,10 +86,6 @@ namespace AutoLevel
             settingsSO = new RepoEntitiesEditorSettingsSO(RepoEntitiesEditorSettings.GetSettings());
 
             activeConnections = new List<Connection>();
-
-            var basePath = System.IO.Path.Combine(EditorHelper.GetAssemblyDirectory<LevelBuilderEditor>(), "Scripts", "Resources");
-            removeIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
-                System.IO.Path.Combine(basePath, "BigBlockRemove.png"));
 
             SceneView.beforeSceneGui += BeforeSceneGUI;
         }
@@ -145,10 +117,15 @@ namespace AutoLevel
                 if ((float)(EditorApplication.timeSinceStartup - cancelStart) < cancelThreshold)
                     cancelDown = true;
 
-            if (ec.type == EventType.KeyDown && ec.shift)
-                shiftHold = true;
-            else if (ec.type == EventType.KeyUp && !ec.shift)
-                shiftHold = false;
+            if (ec.isKey && ec.type == EventType.KeyDown && ec.keyCode == settings.banConnectionKey)
+                bannConnectionKey = true;
+            if (ec.isKey && ec.type == EventType.KeyUp && ec.keyCode == settings.banConnectionKey)
+                bannConnectionKey = false;
+
+            if (ec.isKey && ec.type == EventType.KeyDown && ec.keyCode == settings.exclusiveConnectionKey)
+                exclusiveConnectionKey = true;
+            if (ec.isKey && ec.type == EventType.KeyUp && ec.keyCode == settings.exclusiveConnectionKey)
+                exclusiveConnectionKey = false;
         }
 
         public sealed override void OnInspectorGUI()
@@ -197,16 +174,20 @@ namespace AutoLevel
 
         #endregion
 
+        #region Initialize
+
         private void UpdateReferencesAndIntialize()
         {
-            repo = ((Component)target).GetComponentInParent<BlocksRepo>();
+            var preRepoComp = repo != null ? repo.target : null;
+            var repoComp = ((Component)target).GetComponentInParent<BlocksRepo>();
 
-            if (repo != null)
+            if (repoComp != null)
             {
-                if (!isInitialized)
+                if (!isInitialized || preRepoComp != repoComp)
                 {
-                    GetRepoEntities(repo ,out allRepoEntities,out activeRepoEntities);
-                    IntegrityCheck(repo, allRepoEntities);
+                    repo = new BlocksRepoSO(repoComp);
+                    BlocksRepoSO.GetRepoEntities(repo.target ,out allRepoEntities,out activeRepoEntities);
+                    BlocksRepoSO.IntegrityCheckAndAllChildren(repo.target);
                     InitGroups();
                     Initialize();
                     isInitialized = true;
@@ -220,18 +201,7 @@ namespace AutoLevel
             camera = SceneView.lastActiveSceneView.camera;
             planes = GeometryUtility.CalculateFrustumPlanes(camera);
         }
-        private static void GetRepoEntities(
-            BlocksRepo repo,
-            out List<MonoBehaviour> allRepoEntities,
-            out List<MonoBehaviour> activeRepoEntities)
-        {
-            var allTransforms = repo.GetComponentsInChildren<Transform>(true);
-            var allBlockAssets = allTransforms.Select((t) => t.GetComponent<BlockAsset>()).Where((asset) => asset != null);
-            var allBigBlockAssets = allTransforms.Select((t) => t.GetComponent<BigBlockAsset>()).Where((asset) => asset != null);
 
-            allRepoEntities = new List<MonoBehaviour>(allBlockAssets.Cast<MonoBehaviour>().Concat(allBigBlockAssets));
-            activeRepoEntities = new List<MonoBehaviour>(allRepoEntities.Where((e) => e.gameObject.activeInHierarchy));
-        }
         protected void GenerateConnections(List<Connection> connections)
         {
             if (repo == null)
@@ -250,286 +220,53 @@ namespace AutoLevel
             for (int i = 0; i < connections.Count; i++)
             {
                 var conn = connections[i];
-                if (conn.a.baseIds[conn.d] != 0)
+                if (conn.a.id != 0)
                     connections.Swap(index++,i);
             }
 
         }
 
-        public static void IntegrityCheck(BlocksRepo repo)
-        {
-            GetRepoEntities(repo, out var all, out var active);
-            IntegrityCheck(repo, all);
-        }
-        private static void IntegrityCheck(BlocksRepo repo, IEnumerable<MonoBehaviour> allRepoEntities)
-        {
-            foreach (var entity in allRepoEntities)
-            {
-                if (entity is BlockAsset)
-                    IntegrityCheck((BlockAsset)entity, repo);
-                else if (entity is BigBlockAsset)
-                    IntegrityCheck((BigBlockAsset)entity);
-            }
-        }
-        private static void IntegrityCheck(BlockAsset blockAsset, BlocksRepo repo)
-        {
-            using (var asset = new BlockAssetEditor.SO(blockAsset))
-            {
-                if (blockAsset.variants.Count == 0)
-                {
-                    asset.variants.Add(new BlockAsset.VariantDesc()
-                    {
-                        fill = GenerateFill(asset.target.gameObject),
-                        sideIds = new ConnectionsIds()
-                    });
-                    asset.ApplyField(nameof(BlockAssetEditor.SO.variants));
-                }
-
-                var groupNames = repo.GetAllGroupsNames();
-
-                if (blockAsset.group == 0 || groupNames.FindIndex((name)=> name.GetHashCode() == blockAsset.group) == -1)
-                {
-                    //adding the base group
-                    blockAsset.group = groupNames[2].GetHashCode();
-                    asset.ApplyField(nameof(BlockAssetEditor.SO.group));
-                }
-
-                var weightGroupNames = repo.GetAllWeightGroupsNames();
-
-                if (blockAsset.weightGroup == 0 || weightGroupNames.FindIndex((name) => name.GetHashCode() == blockAsset.weightGroup) == -1)
-                {
-                    //adding the base group
-                    blockAsset.weightGroup = weightGroupNames[2].GetHashCode();
-                    asset.ApplyField(nameof(BlockAssetEditor.SO.weightGroup));
-                }
-            }
-        }
-        private static void IntegrityCheck(BigBlockAsset blockAsset)
-        {
-            using (var so = new BigBlockAssetEditor.SO(blockAsset))
-            {
-                bool apply = false;
-                foreach (var index in SpatialUtil.Enumerate(so.data.Size))
-                {
-                    var oList = so.data[index];
-                    var nList = new SList<AssetBlock>();
-                    for (int i = 0; i < oList.Count; i++)
-                    {
-                        var block = oList[i];
-                        if (block.hasGameObject && 
-                            block.VariantIndex < block.blockAsset.variants.Count)
-                                nList.Add(block);
-                    }
-                    if (oList.Count != nList.Count)
-                    {
-                        so.data[index] = nList;
-                        apply = true;
-                    }
-                }
-                if (apply)
-                    so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
-            }
-        }
-        private static int GenerateFill(GameObject gameObject)
-        {
-            Mesh mesh = BlockUtility.GetMesh(gameObject);
-
-            if (mesh == null)
-                return 0;
-
-            if (!mesh.isReadable)
-                Debug.LogWarning("make the mesh readable, if you are generating in runtime");
-
-            int fill = 0;
-            var verts = new List<Vector3>();
-            var indices = new List<int>();
-            mesh.GetVertices(verts);
-            mesh.GetIndices(indices, 0);
-
-            float e = 0.0001f;
-            Ray[] rays = new Ray[]
-            {
-            new Ray(nodes[1] + new Vector3(0.1f,e,e),Vector3.left),
-            new Ray(nodes[3] + new Vector3(0.1f,e,-e),Vector3.left),
-            new Ray(nodes[5] + new Vector3(0.1f,-e,e),Vector3.left),
-            new Ray(nodes[7] + new Vector3(0.1f,-e,-e),Vector3.left),
-
-            new Ray(nodes[4] + new Vector3(e,0.1f,e),Vector3.down),
-            new Ray(nodes[5] + new Vector3(-e,0.1f,e),Vector3.down),
-            new Ray(nodes[6] + new Vector3(e,0.1f,-e),Vector3.down),
-            new Ray(nodes[7] + new Vector3(-e,0.1f,-e),Vector3.down),
-
-            new Ray(nodes[2] + new Vector3(e,e,0.1f),Vector3.back),
-            new Ray(nodes[3] + new Vector3(-e,e,0.1f),Vector3.back),
-            new Ray(nodes[6] + new Vector3(e,-e,0.1f),Vector3.back),
-            new Ray(nodes[7] + new Vector3(-e,-e,0.1f),Vector3.back),
-            };
-            Vector2Int[] rayNodes = new Vector2Int[]
-            {
-            new Vector2Int(1,0),
-            new Vector2Int(3,2),
-            new Vector2Int(5,4),
-            new Vector2Int(7,6),
-            new Vector2Int(4,0),
-            new Vector2Int(5,1),
-            new Vector2Int(6,2),
-            new Vector2Int(7,3),
-            new Vector2Int(2,0),
-            new Vector2Int(3,1),
-            new Vector2Int(6,4),
-            new Vector2Int(7,5),
-            };
-            bool[] rayHit = new bool[12];
-            for (int i = 0; i < indices.Count; i += 3)
-            {
-                var v0 = verts[indices[i]];
-                var v1 = verts[indices[i + 1]];
-                var v2 = verts[indices[i + 2]];
-                float t = 0;
-                Vector3 normal = Vector3.zero;
-                Vector3 bary = Vector3.zero;
-
-                for (int j = 0; j < rays.Length; j++)
-                {
-                    if (rays[j].TriangleIntersection(v0, v1, v2,
-                        ref t, ref bary, ref normal))
-                    {
-                        rayHit[j] = true;
-                        int bitShift;
-                        if (Vector3.Dot(rays[j].direction, normal) > 0)
-                            bitShift = rayNodes[j].x;
-                        else
-                            bitShift = rayNodes[j].y;
-                        fill |= 1 << bitShift;
-                    }
-                }
-            }
-
-            System.Action validateNeighbour = () =>
-            {
-                for (int i = 0; i < rayNodes.Length; i++)
-                {
-                    if (!rayHit[i])
-                    {
-                        var ind = rayNodes[i];
-                        if (
-                            ((fill & (1 << ind.x)) > 0) ||
-                            ((fill & (1 << ind.y)) > 0))
-                        {
-                            fill |= 1 << ind.x;
-                            fill |= 1 << ind.y;
-                        }
-                    }
-                }
-            };
-            validateNeighbour();
-            validateNeighbour();
-
-            return fill;
-        }
         private void InitGroups()
         {
-            var repoGroups = repo.GetAllGroupsNames();
+            var repoGroups = repo.target.GetAllGroupsNames();
             allGroups = new string[repoGroups.Count - 2];
             for (int i = 2; i < repoGroups.Count; i++)
                 allGroups[i - 2] = repoGroups[i];
 
-            repoGroups = repo.GetAllWeightGroupsNames();
+            repoGroups = repo.target.GetAllWeightGroupsNames();
             allWeightGroups = new string[repoGroups.Count - 2];
             for (int i = 2; i < repoGroups.Count; i++)
                 allWeightGroups[i - 2] = repoGroups[i];
         }
 
-        protected void DrawAssetsBlocks()
+        #endregion
+
+        protected int GetGroupIndex(int group) => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == group);
+        protected int GetWeightGroupIndex(int weightGroup) => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == weightGroup);
+        
+        #region Queries
+
+        protected enum AssetType 
         {
-            var blocks = GetBlocksIt(AssetType.BlockAsset).
-                Where((block) => block.Item1.VariantIndex != 0).
-                Concat(GetBlocksIt(AssetType.BigBlockAssetFirst));
-
-            if(assetBlocksGO.Count != blocks.Count())
-            {
-                ClearAssetsBlocks();
-
-                foreach(var block in blocks)
-                {
-                    var b = new GameObject(block.Item1.blockAsset.name);
-                    b.hideFlags = HideFlags.HideAndDontSave;
-
-                    b.AddComponent<MeshFilter>().sharedMesh = block.Item1.baseMesh;
-                    b.AddComponent<MeshRenderer>().sharedMaterial = BlockUtility.GetMaterial(block.Item1.gameObject);
-                    foreach(var action in block.Item1.actions)
-                        ActionsUtility.ApplyAction(b, action);
-
-                    var go = new GameObject(block.Item1.blockAsset.name);
-                    go.hideFlags = HideFlags.HideAndDontSave;
-                    b.transform.SetParent(go.transform);
-
-                    assetBlocksGO.Add(go);
-                }
-            }else
-            {
-                int i = 0;
-                foreach (var block in blocks)
-                    assetBlocksGO[i++].transform.position = block.Item2;
-            }
-        }
-        private void ClearAssetsBlocks()
-        {
-            for (int i = 0; i < assetBlocksGO.Count; i++)
-                GameObjectUtil.SafeDestroy(assetBlocksGO[i]);
-            assetBlocksGO.Clear();
+            /// <summary>
+            /// the first variant from each block asset
+            /// </summary>
+            BlockAssetFirst,
+            /// <summary>
+            /// all the variants from each block asset
+            /// </summary>
+            BlockAsset ,
+            /// <summary>
+            /// the first asset block from each cell of each big block
+            /// </summary>
+            BigBlockAssetFirst  ,
+            /// <summary>
+            /// all the variants from each block asset which not a part of the big block,
+            /// and all the asset blocks in each cell of each big block
+            /// </summary>
+            AllBlockAssetAndBigBlockAsset
         }
 
-        protected void DrawAssetsBlocksSides(IEnumerable<MonoBehaviour> targets)
-        {
-            foreach (var sideItem in AssetsBlocksSidesIt(targets))
-            {
-                var d = sideItem.Item1.d;
-                BlockSideDC(GetSideCenter(sideItem.Item2, d), directions[d], 1f).
-                SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
-            }
-        }
-        protected void DoBlocksSelectionButtons(IEnumerable<MonoBehaviour> targets,int layer = 0)
-        {
-            foreach (var target in targets)
-            {
-                if (target is BlockAsset)
-                {
-                    foreach (var blockItem in AssetBlocksIt((BlockAsset)target))
-                        if (blockItem.Item1.layerSettings.layer >= layer && BlockButton(blockItem.Item1, blockItem.Item2))
-                        {
-                            Selection.activeGameObject = blockItem.Item1.gameObject;
-                            initializeCommand.Set(blockItem.Item1.VariantIndex.ToString());
-                        }
-                }
-                else if (target is BigBlockAsset)
-                {
-                    var bigBlock = (BigBlockAsset)target;
-
-                    if (!GeometryUtility.TestPlanesAABB(planes, GetBigBlockBounds(bigBlock)))
-                        continue;
-
-                    foreach (var sideItem in BigBlockSidesIt(bigBlock))
-                    {
-                        var d = sideItem.Item1.d;
-                        BlockSideDC(GetSideCenter(sideItem.Item2, d), directions[d], 1f).
-                        SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
-                    }
-
-                    var buttonDC = GetDrawCmd().SetPrimitiveMesh(PrimitiveType.Cube).SetMaterial(MaterialType.UI).
-                        Scale(bigBlock.data.Size).Move(bigBlock.transform.position + ((Vector3)bigBlock.data.Size) * 0.5f);
-
-                    Button.SetAll(buttonDC);
-                    Button.normal.SetColor(new Color());
-                    Button.hover.SetColor(new Color().SetAlpha(BlockSideActiveColor.a));
-                    Button.active.SetColor(BlockSideActiveColor);
-                    if (Button.Draw<Cube3DD>())
-                        Selection.activeGameObject = bigBlock.gameObject;
-                }
-            }
-        }
-
-        protected enum AssetType { BlockAssetFirst, BlockAsset , BigBlockAssetFirst  , AllBlockAssetAndBigBlockAsset}
         protected IEnumerable<(AssetBlock, Vector3)> GetBlocksIt(AssetType assetType, bool includeInActive = false)
         {
             var assets = includeInActive ? allRepoEntities : activeRepoEntities;
@@ -570,7 +307,7 @@ namespace AutoLevel
                             foreach (var block in AssetBlocksAllIt((BigBlockAsset)asset))
                                 yield return block;
                         }
-                        else if (assetType.HasFlag(AssetType.BlockAsset))
+                        else
                         {
                             foreach (var block in AssetBlocksIt((BlockAsset)asset))
                                 if (block.Item1.bigBlock == null)
@@ -605,14 +342,14 @@ namespace AutoLevel
         {
             for (int j = 0; j < blockAsset.variants.Count; j++)
             {
-                if (!settings.DrawVariants && j > 0)
-                    break;
-
                 var block = new AssetBlock(j, blockAsset);
                 yield return (block, GetPositionFromBlockAsset(block));
             }
         }
 
+        /// <summary>
+        /// iterate the external sides with back culling
+        /// </summary>
         protected IEnumerable<(BlockSide, Vector3)> AssetsBlocksSidesIt(IEnumerable<MonoBehaviour> targets)
         {
             foreach (var asset in targets)
@@ -626,6 +363,18 @@ namespace AutoLevel
                         yield return item;
             }
         }
+        /// <summary>
+        /// iterate the external sides with back culling
+        /// </summary>
+        protected IEnumerable<(BlockSide, Vector3)> BlockSidesIt(AssetBlock block, Vector3 blockPosition)
+        {
+            for (int d = 0; d < 6; d++)
+                if (BackCulling(blockPosition, d))
+                    yield return (new BlockSide(block, d), blockPosition);
+        }
+        /// <summary>
+        /// iterate the external sides with back culling
+        /// </summary>
         protected IEnumerable<(BlockSide, Vector3)> BigBlockSidesIt(BigBlockAsset bigBlock)
         {
             BoundsInt bounds = new BoundsInt()
@@ -638,7 +387,7 @@ namespace AutoLevel
                 var pos = GetPositionFromBigBlockAsset(block);
                 foreach (var d in BigBlockExtSideIt(bigBlock,index))
                 {
-                    if (SideCullTest(pos, d))
+                    if (BackCulling(pos, d))
                         yield return (new BlockSide(block, d), pos);
                 }
             }
@@ -654,17 +403,298 @@ namespace AutoLevel
                     yield return d;
             }
         }
-        protected IEnumerable<(BlockSide, Vector3)> BlockSidesIt(AssetBlock block, Vector3 blockPosition)
+
+        protected IEnumerable<Connection> GetBannedConnectionsIt(AssetBlock block)
         {
-            for (int d = 0; d < 6; d++)
-                if (SideCullTest(blockPosition, d))
-                    yield return (new BlockSide(block, d), blockPosition);
+            foreach(var con in repo.bannedConnections)
+                if(con.Contain(block))
+                    yield return con;
         }
 
-        protected bool BlockButton(AssetBlock block, Vector3 position)
+        protected IEnumerable<Connection> GetExclusiveConnectionsIt(AssetBlock block)
+        {
+            foreach (var con in repo.exclusiveConnections)
+                if (con.a.block == block)
+                    yield return con;
+        }
+
+        #endregion
+
+        #region Drawing
+
+        protected void DrawConnections()
+        {
+            DrawDefaultConnections();
+            DrawBannedConnections();
+            DrawExclusiveConnections();
+        }
+        protected void DrawDefaultConnections()
+        {
+            var count = Mathf.Min(settings.MaxConnectionsDrawCount, activeConnections.Count);
+            for (int i = 0; i < count; i++)
+                DrawDefaultConnection(activeConnections[i]);
+        }
+        protected void DrawBannedConnections()
+        {
+            foreach (var conn in repo.bannedConnections)
+                if(BlockUtility.IsActive(conn.a.block) && BlockUtility.IsActive(conn.b.block))
+                    DrawConnection(conn, Color.black, 8f);
+        }
+        protected void DrawExclusiveConnections()
+        {
+            foreach (var conn in repo.exclusiveConnections)
+                if (BlockUtility.IsActive(conn.a.block) && BlockUtility.IsActive(conn.b.block))
+                {
+                    var center = GetBlockPosition(conn.a.block) + origins[conn.a.d];
+                    GetDrawCmd().SetPrimitiveMesh(PrimitiveType.Sphere).SetColor(Color.white).Scale(0.1f).Move(center).Draw();
+
+                    DrawConnection(conn, Color.white, 8f);
+                }
+        }
+        protected void DrawDefaultConnection(Connection con)
+        {
+            if (con.a.block == con.b.block)
+            {
+                if (settings.DrawSelfConnections)
+                    DrawConnection(con, Color.cyan, 4f);
+            }
+            else
+                DrawConnection(con, GetColor(con.a.id), con.a.id == 0 ? 2f : 4f);
+        }
+
+        protected void DrawBlockToBigBlockConnection(AssetBlock block)
+        {
+            DrawBlockOutlineConnection(
+                GetPositionFromBigBlockAsset(block),
+                GetPositionFromBlockAsset(block),
+                NiceColors.Saffron, block.bigBlock.gameObject.activeInHierarchy);
+        }
+
+        // draw variants and big blocks
+        protected void DrawAssetsBlocks()
+        {
+            var blocks = GetBlocksIt(AssetType.BlockAsset).
+                Where((block) => block.Item1.VariantIndex != 0).
+                Concat(GetBlocksIt(AssetType.BigBlockAssetFirst));
+
+            if (assetBlocksGO.Count != blocks.Count())
+            {
+                ClearAssetsBlocks();
+
+                foreach (var block in blocks)
+                {
+                    var b = new GameObject(block.Item1.blockAsset.name);
+                    b.hideFlags = HideFlags.HideAndDontSave;
+
+                    b.AddComponent<MeshFilter>().mesh = block.Item1.baseMesh;
+                    b.AddComponent<MeshRenderer>().material = BlockUtility.GetMaterial(block.Item1.gameObject);
+                    foreach (var action in block.Item1.actions)
+                        ActionsUtility.ApplyAction(b, action);
+
+                    var go = new GameObject(block.Item1.blockAsset.name);
+                    go.hideFlags = HideFlags.HideAndDontSave;
+                    b.transform.SetParent(go.transform);
+
+                    assetBlocksGO.Add(go);
+                }
+            }
+            else
+            {
+                int i = 0;
+                foreach (var block in blocks)
+                    assetBlocksGO[i++].transform.position = block.Item2;
+            }
+        }
+        private void ClearAssetsBlocks()
+        {
+            for (int i = 0; i < assetBlocksGO.Count; i++)
+                GameObjectUtil.SafeDestroy(assetBlocksGO[i]);
+            assetBlocksGO.Clear();
+        }
+
+        protected void DrawAssetsBlocksSides(IEnumerable<MonoBehaviour> targets)
+        {
+            foreach (var sideItem in AssetsBlocksSidesIt(targets))
+            {
+                var d = sideItem.Item1.d;
+                BlockSideDC(GetSideCenter(sideItem.Item2, d), directions[d], 1f).
+                SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
+            }
+        }
+
+        #endregion
+
+        #region Controls
+
+        protected void DoBlocksSelectionButtons(IEnumerable<MonoBehaviour> targets, int layer = 0 /* ignore any layer beneath it */)
+        {
+            foreach (var target in targets)
+            {
+                if (target is BlockAsset)
+                {
+                    foreach (var blockItem in AssetBlocksIt((BlockAsset)target))
+                        if (blockItem.Item1.layerSettings.layer >= layer && DoBlockButton(blockItem.Item1, blockItem.Item2))
+                        {
+                            Selection.activeGameObject = blockItem.Item1.gameObject;
+                            initializeCommand.Set(blockItem.Item1.VariantIndex.ToString());
+                        }
+                }
+                else if (target is BigBlockAsset)
+                {
+                    var bigBlock = (BigBlockAsset)target;
+
+                    if (!GeometryUtility.TestPlanesAABB(planes, GetBigBlockBounds(bigBlock)))
+                        continue;
+
+                    foreach (var sideItem in BigBlockSidesIt(bigBlock))
+                    {
+                        var d = sideItem.Item1.d;
+                        BlockSideDC(GetSideCenter(sideItem.Item2, d), directions[d], 1f).
+                        SetColor(GetColor(sideItem.Item1.id) * BlockSideNormalColor).Draw();
+                    }
+
+                    var buttonDC = GetDrawCmd().SetPrimitiveMesh(PrimitiveType.Cube).SetMaterial(MaterialType.UI).
+                        Scale(bigBlock.data.Size).Move(bigBlock.transform.position + ((Vector3)bigBlock.data.Size) * 0.5f);
+
+                    Button.SetAll(buttonDC);
+                    Button.normal.SetColor(new Color());
+                    Button.hover.SetColor(new Color().SetAlpha(BlockSideActiveColor.a));
+                    Button.active.SetColor(BlockSideActiveColor);
+                    if (Button.Draw<Cube3DD>())
+                        Selection.activeGameObject = bigBlock.gameObject;
+                }
+            }
+        }
+
+        protected void DoSideConnection(BlockSide src, Vector3 position, System.Action OnConnect)
+        {
+            SceneView.RepaintAll();
+
+            Handles.color = bannConnectionKey ? Color.black : exclusiveConnectionKey ? Color.white : Color.green;
+            Handles.DrawAAPolyLine(8f,GetSideCenter(position, src.d),
+                HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).GetPoint(10f));
+            Handles.color = Color.white;
+
+            if (Event.current.shift || bannConnectionKey || exclusiveConnectionKey)
+            {
+                var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
+
+                float mdist = float.MaxValue;
+                bool partOfBigBlock = false;
+                AssetBlock targetBlock = default;
+                BigBlockAsset bigBlockAsset = null;
+
+                foreach (var entity in activeRepoEntities)
+                {
+                    if (entity is BlockAsset)
+                    {
+                        foreach (var blockItem in AssetBlocksIt((BlockAsset)entity))
+                        {
+                            var bounds = new Bounds(blockItem.Item2 + Vector3.one * 0.5f, Vector3.one);
+                            if (bounds.IntersectRay(ray, out var t))
+                                if (t < mdist)
+                                {
+                                    mdist = t;
+                                    partOfBigBlock = false;
+                                    targetBlock = blockItem.Item1;
+                                }
+                        }
+                    }
+                    else if (entity is BigBlockAsset)
+                    {
+                        var bounds = GetBigBlockBounds((BigBlockAsset)entity);
+                        if (bounds.IntersectRay(ray, out var t))
+                            if (t < mdist)
+                            {
+                                mdist = t;
+                                partOfBigBlock = true;
+                                bigBlockAsset = (BigBlockAsset)entity;
+                            }
+                    }
+                }
+
+                if (!partOfBigBlock)
+                {
+                    if (targetBlock.Valid)
+                        foreach (var sideItem in BlockSidesIt(targetBlock, GetPositionFromBlockAsset(targetBlock)))
+                        {
+                            if (DoBlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
+                            {
+                                HandleConnection(src, sideItem.Item1);
+                                OnConnect?.Invoke();
+                            }
+                        }
+                }
+                else
+                {
+                    foreach (var sideItem in BigBlockSidesIt(bigBlockAsset))
+                    {
+                        if (DoBlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
+                        {
+                            HandleConnection(src, sideItem.Item1);
+                            OnConnect?.Invoke();
+                        }
+                    }
+                }
+
+            }
+            else
+            {
+                var od = opposite[src.d];
+                foreach (var sideItem in AssetsBlocksSidesIt(activeRepoEntities))
+                {
+                    var side = sideItem.Item1;
+                    if (side.d == od && GetSide(side.block.fill, od) == GetSide(src.block.fill, src.d))
+                        if (DoBlockSideButton(side, sideItem.Item2, 0.9f))
+                        {
+                            HandleConnection(src, side);
+                            OnConnect?.Invoke();
+                        }
+                }
+
+            }
+        }
+        private void HandleConnection(BlockSide src, BlockSide dst)
+        {
+            if (bannConnectionKey)
+                BanConnection(src, dst);
+            else if (exclusiveConnectionKey)
+                ExclusiveConnection(src, dst);
+            else
+                MakeConnection(src, dst);
+        }
+
+        protected bool DoBlockDetachButton(AssetBlock block)
+        {
+            var bounds = new Bounds();
+            bounds.min = GetPositionFromBlockAsset(block);
+            bounds.max = bounds.min + Vector3.one;
+            var screenAnch = new Vector2(SceneView.lastActiveSceneView.position.size.x, 0);
+            var pos = BoundsUtility.ClosestCornerToScreenPoint(bounds, screenAnch);
+
+            var cmd = GetDrawCmd()
+                .SetColor(Color.white)
+                .SetMaterial(MaterialType.UI)
+                .SetTexture(handleRes.detatch_icon)
+                .LookAtCamera()
+                .Scale(0.25f)
+                .Move(pos);
+
+            Button.SetAll(cmd);
+            Button.hover.SetColor(Color.yellow);
+            Button.active.SetColor(Color.red);
+            if (Button.Draw<QuadD>())
+            {
+                DetachFromBigBlock(block);
+                return true;
+            }
+            return false;
+        }
+
+        protected bool DoBlockButton(AssetBlock block, Vector3 position)
         {
             position += Vector3.one * 0.5f;
-            if (!CubeFrustumTest(position))
+            if (!CubeFrustumCulling(position))
                 return false;
 
             DrawCommand dcmd = BlockSidesDC(block, position);
@@ -674,13 +704,13 @@ namespace AutoLevel
             Button.active.SetColor(BlockSideActiveColor);
             return Button.Draw<Cube3DD>();
         }
-        protected bool BlockSideButton(BlockSide blockSide, float size, float alpha = 1f) => BlockSideButton(blockSide, GetPositionFromBlockAsset(blockSide.block), size, alpha);
-        protected bool BlockSideButton(BlockSide blockSide, Vector3 position, float size, float alpha = 1f)
+        protected bool DoBlockSideButton(BlockSide blockSide, float size, float alpha = 1f) => DoBlockSideButton(blockSide, GetPositionFromBlockAsset(blockSide.block), size, alpha);
+        protected bool DoBlockSideButton(BlockSide blockSide, Vector3 position, float size, float alpha = 1f)
         {
             var center = GetSideCenter(position, blockSide.d);
             var normal = directions[blockSide.d];
 
-            if (!PlaneFrustumTest(center, normal))
+            if (!PlaneFrustumCulling(center, normal))
                 return false;
 
             var draw = BlockSideDC(center, normal, size).SetColor(GetColor(blockSide.id));
@@ -691,64 +721,26 @@ namespace AutoLevel
             return Button.Draw<Quad3DD>();
         }
 
-        protected DrawCommand BlockSidesDC(IBlock block, Vector3 position)
-        {
-            for (int d = 0; d < 6; d++)
-                handleRes.SetCubeColorMatSide(GetColor(block.baseIds[d]), d);
+        #endregion
 
-            var dcmd = GetDrawCmd().
-                SetPrimitiveMesh(PrimitiveType.Cube).
-                SetMaterial(handleRes.ColorCubeMat).
-                Scale(1f).
-                Move(position);
-            return dcmd;
-        }
-        protected DrawCommand BlockSideDC(Vector3 center, Vector3 normal, float size)
+        #region DrawPrimitive
+
+        protected void DrawConnection(Connection con, Color color, float thickness)
         {
-            return GetDrawCmd().Scale(size).LookAt(-normal).Move(center);
+            var s = GetBlockPosition(con.a.block) + origins[con.a.d];
+            var st = directions[con.a.d];
+            var e = GetBlockPosition(con.b.block) + origins[con.b.d];
+            var et = directions[con.b.d];
+            Handles.DrawBezier(s, e, s + st, e + et, color, null, thickness);
         }
 
-        protected void DrawConnections(List<Connection> connections)
-        {
-            var count = Mathf.Min(settings.MaxConnectionsDrawCount, connections.Count);
-            for (int i = 0; i < count; i++)
-                DrawConnection(connections[i]);
-        }
-        protected void DrawConnection(Connection con)
-        {
-            if ((AssetBlock)con.a == (AssetBlock)con.b)
-            {
-                if (settings.DrawSelfConnections)
-                    Draw(con, Color.cyan);
-            }
-            else
-                Draw(con, GetColor(con.a.baseIds[con.d]));
-        }
-        protected void Draw(Connection con, Color color)
-        {
-            var s = GetBlockPosition(con.a) + origins[con.d];
-            var st = directions[con.d];
-            var e = GetBlockPosition(con.b) + origins[opposite[con.d]];
-            var et = directions[opposite[con.d]];
-            var id = con.a.baseIds[con.d];
-            Handles.DrawBezier(s, e, s + st, e + et, color, null,id == 0 ? 2f : 4f);
-        }
-
-        protected void DrawBlockToBigBlockConnection(AssetBlock block)
-        {
-            DrawBlockOutlineConnection(
-                GetPositionFromBigBlockAsset(block),
-                GetPositionFromBlockAsset(block),
-                NiceColors.Saffron);
-        }
-
-        protected void DrawBlockOutlineConnection(Vector3 a, Vector3 b, Color color)
+        protected void DrawBlockOutlineConnection(Vector3 a, Vector3 b, Color color, bool drawLine = true)
         {
             b += Vector3.one * 0.5f;
             a += Vector3.one * 0.5f;
 
             //Draw the line
-
+            if(drawLine)
             {
                 Handles.color = color;
                 Handles.zTest = UnityEngine.Rendering.CompareFunction.Less;
@@ -772,119 +764,68 @@ namespace AutoLevel
             }
         }
 
-        protected bool DoBlockDetachButton(AssetBlock block)
+        protected DrawCommand BlockSidesDC(IBlock block, Vector3 position)
         {
-            var bounds = new Bounds();
-            bounds.min = GetPositionFromBlockAsset(block);
-            bounds.max = bounds.min + Vector3.one;
-            var screenAnch = new Vector2(SceneView.lastActiveSceneView.position.size.x, 0);
-            var pos = BoundsUtility.ClosestCornerToScreenPoint(bounds, screenAnch);
+            for (int d = 0; d < 6; d++)
+                handleRes.SetCubeColorMatSide(GetColor(block.baseIds[d]), d);
 
-            var cmd = GetDrawCmd()
-                .SetColor(Color.white)
-                .SetMaterial(MaterialType.UI)
-                .SetTexture(removeIcon)
-                .LookAtCamera()
-                .Scale(0.25f)
-                .Move(pos);
-
-            Button.SetAll(cmd);
-            Button.hover.SetColor(Color.yellow);
-            Button.active.SetColor(Color.red);
-            if (Button.Draw<QuadD>())
-            {
-                DetachFromBigBlock(block);
-                return true;
-            }
-            return false;
+            var dcmd = GetDrawCmd().
+                SetPrimitiveMesh(PrimitiveType.Cube).
+                SetMaterial(handleRes.color_cube_mat).
+                Scale(1f).
+                Move(position);
+            return dcmd;
+        }
+        protected DrawCommand BlockSideDC(Vector3 center, Vector3 normal, float size)
+        {
+            return GetDrawCmd().Scale(size).LookAt(-normal).Move(center);
         }
 
-        protected void DoSideConnection(BlockSide src, Vector3 position, System.Action OnConnect)
+        #endregion
+
+        #region BlockUtility
+ 
+        protected void ExclusiveConnection(BlockSide src, BlockSide dst)
         {
-            SceneView.RepaintAll();
+            var conn = new Connection(src, dst);
 
-            Handles.DrawDottedLine(
-                GetSideCenter(position, src.d),
-                HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).GetPoint(10f)
-                , 4f);
-
-            if (shiftHold)
-            {
-                var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
-
-                float mdist = float.MaxValue;
-                bool partOfBigBlock = false;
-                AssetBlock targetBlock = default;
-                BigBlockAsset bigBlockAsset = null;
-
-                foreach(var entity in activeRepoEntities)
-                {
-                    if(entity is BlockAsset)
-                    {
-                        foreach(var blockItem in AssetBlocksIt((BlockAsset)entity))
-                        {
-                            var bounds = new Bounds(blockItem.Item2 + Vector3.one * 0.5f, Vector3.one);
-                            if (bounds.IntersectRay(ray, out var t))
-                                if (t < mdist)
-                                {
-                                    mdist = t;
-                                    partOfBigBlock = false;
-                                    targetBlock = blockItem.Item1;
-                                }
-                        }
-                    }
-                    else if(entity is BigBlockAsset)
-                    {
-                        var bounds = GetBigBlockBounds((BigBlockAsset)entity);
-                        if (bounds.IntersectRay(ray, out var t))
-                            if (t < mdist)
-                            {
-                                mdist = t;
-                                partOfBigBlock = true;
-                                bigBlockAsset = (BigBlockAsset)entity;
-                            }
-                    }
-                }
-
-                if(!partOfBigBlock)
-                {
-                    if (targetBlock.hasGameObject)
-                        foreach (var sideItem in BlockSidesIt(targetBlock, GetPositionFromBlockAsset(targetBlock)))
-                        {
-                            if (BlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
-                            {
-                                MakeConnection(src, sideItem.Item1);
-                                OnConnect?.Invoke();
-                            }
-                        }
-                }else
-                {
-                    foreach(var sideItem in BigBlockSidesIt(bigBlockAsset))
-                    {
-                        if (BlockSideButton(sideItem.Item1, sideItem.Item2, 0.9f))
-                        {
-                            MakeConnection(src, sideItem.Item1);
-                            OnConnect?.Invoke();
-                        }
-                    }
-                }
-
-            }
+            if (repo.exclusiveConnections.Contains(conn))
+                RemoveExclusiveConnection(conn);
             else
-            {
-                var od = opposite[src.d];
-                foreach (var sideItem in AssetsBlocksSidesIt(activeRepoEntities))
-                {
-                    var side = sideItem.Item1;
-                    if (side.d == od && GetSide(side.block.fill, od) == GetSide(src.block.fill, src.d))
-                        if (BlockSideButton(side, sideItem.Item2, 0.9f))
-                        {
-                            MakeConnection(src, side);
-                            OnConnect?.Invoke();
-                        }
-                }
+                AddExclusiveConnection(conn);
 
-            }
+            Repaint();
+        }
+        protected void RemoveExclusiveConnection(Connection conn)
+        {
+            repo.exclusiveConnections.Remove(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.exclusiveConnections));
+        }
+        protected void AddExclusiveConnection(Connection conn)
+        {
+            repo.exclusiveConnections.Add(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.exclusiveConnections));
+        }
+        protected void BanConnection(BlockSide src, BlockSide dst)
+        {
+            var conn = new Connection(src, dst);
+
+            if (repo.bannedConnections.Contains(conn))
+                RemoveBannnedConnection(conn);
+            else
+                AddBannedConnection(conn);
+
+            Repaint();
+        }
+        protected void RemoveBannnedConnection(Connection conn)
+        {
+            repo.bannedConnections.Remove(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.bannedConnections));
+        }
+        protected void AddBannedConnection(Connection conn)
+        {
+            repo.bannedConnections.Add(conn);
+            repo.ApplyField(nameof(BlocksRepoSO.bannedConnections));
         }
         protected void MakeConnection(BlockSide src, BlockSide dst)
         {
@@ -918,7 +859,7 @@ namespace AutoLevel
                     for (int d = 0; d < 6; d++)
                     {
                         if (block.baseIds[d] == bId)
-                            writeOps.Add((new BlockSide(block,d), aId));
+                            writeOps.Add((new BlockSide(block, d), aId));
                     }
                 }
             }
@@ -939,10 +880,10 @@ namespace AutoLevel
                     //only for external side
                     if (!bounds.Contains(index + delta[d]))
                     {
-                        //every big block cell get one write
+                        //every big block side get one write
                         if (bigBlockWriteOp.FindIndex((item) =>
                         item.Item1.Item1 == block.bigBlock &&
-                        item.Item1.Item2 == index) < 0)
+                        item.Item1.Item2 == index && item.Item2 == d) < 0)
                         {
                             bigBlockWriteOp.Add(((block.bigBlock, index), d, op.Item2));
                         }
@@ -951,7 +892,7 @@ namespace AutoLevel
                 }
             }
 
-            foreach(var op in bigBlockWriteOp)
+            foreach (var op in bigBlockWriteOp)
             {
                 var bigblock = op.Item1.Item1;
                 var index = op.Item1.Item2;
@@ -959,35 +900,17 @@ namespace AutoLevel
                 WriteBigBlockCellSide(bigblock, index, side, op.Item3);
             }
 
-            foreach(var op in writeOps)
-                WriteBlockSide((AssetBlock)op.Item1.block, op.Item1.d, op.Item2);
+            foreach (var op in writeOps)
+                WriteBlockSide(op.Item1.block, op.Item1.d, op.Item2);
 
             Repaint();
         }
-
-        protected void WriteBigBlockCellSide(BigBlockAsset bigBlock,Vector3Int index, int side, int id)
-        {
-            foreach (var block in bigBlock.data[index])
-                WriteBlockSide(block, side, id);
-        }
-
-        protected void WriteBlockSide(AssetBlock block,int side,int id)
-        {
-            using (var so = new BlockAssetEditor.SO(block.blockAsset))
-            {
-                var variant = so.variants[block.VariantIndex];
-                variant.sideIds[side] = id;
-                so.variants[block.VariantIndex] = variant;
-                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
-            }
-        }
-
         protected bool IsConnected(BlockSide blockSide, IEnumerable<AssetBlock> allBlocks)
         {
             if (blockSide.id == 0) return false;
 
             var id = blockSide.id;
-            foreach(var block in allBlocks)
+            foreach (var block in allBlocks)
             {
                 for (int d = 0; d < 6; d++)
                 {
@@ -999,27 +922,39 @@ namespace AutoLevel
 
             return false;
         }
+        protected void WriteBigBlockCellSide(BigBlockAsset bigBlock, Vector3Int index, int side, int id)
+        {
+            foreach (var block in bigBlock.data[index])
+                WriteBlockSide(block, side, id);
+        }
 
-        protected int GetGroupIndex(int group) => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == group);
-        protected int GetWeightGroupIndex(int weightGroup) => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == weightGroup);
-
+        protected void WriteBlockSide(AssetBlock block, int side, int id)
+        {
+            using (var so = new BlockAssetSO(block.blockAsset))
+            {
+                var variant = so.variants[block.VariantIndex];
+                variant.sideIds[side] = id;
+                so.variants[block.VariantIndex] = variant;
+                so.ApplyField(nameof(BlockAssetSO.variants));
+            }
+        }
         protected void DetachFromBigBlock(AssetBlock block)
         {
             if (!block.hasGameObject || block.bigBlock == null)
                 return;
 
-            using (var so = new BigBlockAssetEditor.SO(block.bigBlock))
+            using (var so = new BigBlockAssetSO(block.bigBlock))
             {
                 var index = GetIndexInBigBlock(block);
                 var list = so.data[index.Item1];
                 list.RemoveAt(index.Item2);
-                so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
+                so.ApplyField(nameof(BigBlockAssetSO.data));
             }
 
-            using (var so = new BlockAssetEditor.SO(block.blockAsset))
+            using (var so = new BlockAssetSO(block.blockAsset))
             {
                 so.variants[block.VariantIndex].bigBlock = null;
-                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
+                so.ApplyField(nameof(BlockAssetSO.variants));
             }
         }
         protected void AttachToBigBlock(Vector3Int index,BigBlockAsset bigBlock,AssetBlock block)
@@ -1027,25 +962,22 @@ namespace AutoLevel
             if (block.bigBlock != null)
                 DetachFromBigBlock(block);
 
-            using (var so = new BlockAssetEditor.SO(block.blockAsset))
+            using (var so = new BlockAssetSO(block.blockAsset))
             {
                 so.variants[block.VariantIndex].bigBlock = bigBlock;
-                so.ApplyField(nameof(BlockAssetEditor.SO.variants));
+                so.ApplyField(nameof(BlockAssetSO.variants));
             }
 
-            using (var so = new BigBlockAssetEditor.SO(bigBlock))
+            using (var so = new BigBlockAssetSO(bigBlock))
             {
                 so.data[index].Add(block);
-                so.ApplyField(nameof(BigBlockAssetEditor.SO.data));
+                so.ApplyField(nameof(BigBlockAssetSO.data));
             }
         }
-        protected Color GetColor(int id)
-        {
-            return AlaslTools.ColorUtility.GetColor(new XXHash().Append(id));
-        }
+
         protected Vector3 GetBlockPosition(IBlock block)
         {
-            if (block.bigBlock != null)
+            if (block.bigBlock != null && block.bigBlock.gameObject.activeInHierarchy)
                 return GetPositionFromBigBlockAsset(block);
             else
                 return GetPositionFromBlockAsset(block);
@@ -1070,7 +1002,7 @@ namespace AutoLevel
             else
                 return block.transform.position;
         }
-        protected (Vector3Int,int) GetIndexInBigBlock(AssetBlock block)
+        protected (Vector3Int, int) GetIndexInBigBlock(AssetBlock block)
         {
             var data = block.bigBlock.data;
             foreach (var index in SpatialUtil.Enumerate(data.Size))
@@ -1079,22 +1011,32 @@ namespace AutoLevel
                 for (int i = 0; i < list.Count; i++)
                 {
                     if (list[i] == block)
-                        return (index,i);
+                        return (index, i);
                 }
-                
+
             }
             throw new System.Exception($"can't find the block in it's big block! {block.blockAsset}");
         }
-        protected bool SideCullTest(Vector3 pos, int side)
+
+        #endregion
+
+        #region Utility
+
+        protected Color GetColor(int id)
+        {
+            return AlaslTools.ColorUtility.GetColor(new XXHash().Append(id));
+        }
+
+        protected bool BackCulling(Vector3 pos, int side)
         {
             return AutoLevelEditorUtility.SideCullTest(camera, pos + origins[side], side);
         }
-        protected bool CubeFrustumTest(Vector3 pos)
+        protected bool CubeFrustumCulling(Vector3 pos)
         {
             Bounds b = new Bounds() { size = Vector3.one, center = pos };
             return GeometryUtility.TestPlanesAABB(planes, b);
         }
-        protected bool PlaneFrustumTest(Vector3 pos, Vector3 normal)
+        protected bool PlaneFrustumCulling(Vector3 pos, Vector3 normal)
         {
             Bounds b = new Bounds() { center = pos, size = -0.95f * MathUtility.Abs(normal) + Vector3.one };
             return GeometryUtility.TestPlanesAABB(planes, b);
@@ -1104,6 +1046,7 @@ namespace AutoLevel
             var size = (Vector3)bigBlockAsset.data.Size;
             return new Bounds(bigBlockAsset.transform.position + size * 0.5f, size);
         }
-    }
 
+        #endregion
+    }
 }

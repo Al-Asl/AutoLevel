@@ -85,5 +85,10 @@ namespace AutoLevel
         {
             return new GroupEnumerator(groupCount, this);
         }
+
+        public override int GetHashCode()
+        {
+            return groups;
+        }
     }
 }

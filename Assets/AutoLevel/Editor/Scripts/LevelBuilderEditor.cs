@@ -280,7 +280,7 @@ namespace AutoLevel
             if (builder.blockRepo == null)
                 return;
 
-            BaseRepoEntityEditor.IntegrityCheck(builder.BlockRepo);
+            BlocksRepoSO.IntegrityCheckAndAllChildren(builder.BlockRepo);
             repo = builder.blockRepo.CreateRuntime();
 
             IntegrityCheck(builder.target, this.repo);
@@ -494,7 +494,7 @@ namespace AutoLevel
                 if (data.BlockRepo == null)
                     continue;
 
-                BaseRepoEntityEditor.IntegrityCheck(data.BlockRepo);
+                BlocksRepoSO.IntegrityCheckAndAllChildren(data.BlockRepo);
                 boundaryRepos[d] = data.BlockRepo.CreateRuntime();
 
                 IntegrityCheck(boundaryLevel, boundaryRepos[d]);
@@ -915,7 +915,7 @@ namespace AutoLevel
                         SetPrimitiveMesh(PrimitiveType.Quad).
                         SetMaterial(MaterialType.UI).
                         SetColor(NiceColors.PictonBlue).
-                        SetTexture(handleRes.connectingIcon).
+                        SetTexture(handleRes.boundary_connect_icon).
                         Scale(2f);
 
             if (!connecting)
@@ -931,7 +931,7 @@ namespace AutoLevel
                     if (builder.boundarySettings.levelBoundary[d] != null)
                     {
                         var btnCmd = cmd;
-                        btnCmd.SetTexture(handleRes.removeConnectionIcon);
+                        btnCmd.SetTexture(handleRes.boundary_remove_icon);
                         btnCmd.SetColor(NiceColors.ImperialRed);
                         btnCmd.LookAt(-normal);
                         btnCmd.Move(pos);

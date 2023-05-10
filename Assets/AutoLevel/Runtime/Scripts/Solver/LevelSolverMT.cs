@@ -285,7 +285,7 @@ namespace AutoLevel
                     {
                         var conn = new WaveCellCounter();
                         for (int d = 0; d < 6; d++)
-                            conn[opposite[d]] = repo.Connections[d][b].Length;
+                            conn[opposite[d]] = repo.Connections[d][b].Count;
                         wc[b] = conn;
                     }
                 });
@@ -564,7 +564,7 @@ namespace AutoLevel
                 var ni = poss.index + delta[d];
                 if (OnBoundary(ni)) continue;
 
-                int[] blocks = repo.Connections[d][poss.block];
+                var blocks = repo.Connections[d][poss.block];
                 var nwc = wave[ni.z, ni.y, ni.x];
 
                 foreach (var block in blocks)

@@ -4,15 +4,6 @@ using System.Linq;
 
 namespace AutoLevel
 {
-
-    [System.Serializable]
-    public class BlockResources
-    {
-        public Mesh mesh;
-        public Material material;
-    }
-
-
     [AddComponentMenu("AutoLevel/Blocks Repo")]
     public partial class BlocksRepo : MonoBehaviour
     {
@@ -28,18 +19,21 @@ namespace AutoLevel
         }
 
         [SerializeField]
-        private List<string> groups = new List<string>();
+        public List<string>         groups;
         [SerializeField]
-        private List<string> weightGroups = new List<string>();
+        public List<string>         weightGroups;
+
         [SerializeField]
-        private List<ActionsGroup> actionsGroups = new List<ActionsGroup>();
+        public List<ActionsGroup>   actionsGroups;
+
+        [HideInInspector] [SerializeField]
+        public List<Connection>     bannedConnections;
+        [HideInInspector] [SerializeField]
+        public List<Connection>     exclusiveConnections;
 
         public const string EMPTY_GROUP = "Empty";
         public const string SOLID_GROUP = "Solid";
-        public const string BASE_GROUP = "Base";
-
-        static int groups_counter_pk = "block_repo_groups_counter".GetHashCode();
-        static int generate_blocks_pk = "block_repo_generate_blocks".GetHashCode();
+        public const string BASE_GROUP  = "Base";
 
         public List<string> GetActionsGroupsNames()
         {
@@ -69,6 +63,6 @@ namespace AutoLevel
 
         private List<string> GetBaseGroups() => new List<string>() { EMPTY_GROUP, SOLID_GROUP, BASE_GROUP };
 
-        public Runtime CreateRuntime() => new Runtime(transform, GetAllGroupsNames(), GetAllWeightGroupsNames(), actionsGroups);
+        public Runtime CreateRuntime() => new Runtime(this, GetAllGroupsNames(), GetAllWeightGroupsNames(), actionsGroups);
     }
 }

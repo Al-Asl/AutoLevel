@@ -2,15 +2,43 @@
 using System.Linq;
 using UnityEngine;
 using AlaslTools;
-using static AutoLevel.BlocksRepo.ActionsGroup;
 
 namespace AutoLevel
 {
-    [System.Serializable]
-    public class BlockResources
+    public class BlockGOBlueprint
     {
-        public Mesh mesh;
-        public Material material;
+        public GameObject gameObject;
+        public List<BlockAction> actions;
+
+        public BlockGOBlueprint(GameObject gameObject, List<BlockAction> actions)
+        {
+            this.gameObject = gameObject;
+            this.actions = actions;
+        }
+
+        public GameObject Create()
+        {
+            if (gameObject == null)
+                return null;
+
+            var go = Object.Instantiate(gameObject);
+            go.RemoveComponent<BlockAsset>();
+
+            go.transform.SetParent(null);
+            go.transform.Reset();
+            AplyActions(go);
+
+            var p = new GameObject(go.name);
+            go.transform.SetParent(p.transform, true);
+
+            return p;
+        }
+
+        private void AplyActions(GameObject go)
+        {
+            foreach (var action in actions)
+                ActionsUtility.ApplyAction(go, action);
+        }
     }
 
     public class BaseRepoException : System.Exception { }
@@ -31,117 +59,6 @@ namespace AutoLevel
     {
         public class Runtime : System.IDisposable
         {
-            private class BlockGOTemplate
-            {
-                public GameObject gameObject;
-                public List<BlockAction> actions;
-
-                public BlockGOTemplate(GameObject gameObject, List<BlockAction> actions)
-                {
-                    this.gameObject = gameObject;
-                    this.actions = actions;
-                }
-
-                public GameObject Create()
-                {
-                    var go = Instantiate(gameObject);
-                    go.name = gameObject.name;
-                    go.SetActive(true);
-                    go.transform.position = Vector3.zero;
-                    AplyActions(go, actions);
-
-                    var root = new GameObject(gameObject.name);
-                    go.transform.SetParent(root.transform);
-                    return root;
-                }
-
-                public void AplyActions(GameObject go, List<BlockAction> actions)
-                {
-                    foreach (var action in actions)
-                        ActionsUtility.ApplyAction(go, action);
-                }
-            }
-
-            private class BlockGOTemplateGenerator
-            {
-                private Dictionary<GameObject, GameObject> map =
-                    new Dictionary<GameObject, GameObject>();
-                private List<Component> components = new List<Component>();
-                public GameObject root { get; private set; }
-
-                public BlockGOTemplateGenerator()
-                {
-                    root = new GameObject("blocks_gameobjects");
-                    root.hideFlags = HideFlags.HideAndDontSave;
-                }
-
-                public BlockGOTemplate Generate(GameObject original,List<BlockAction> actions)
-                {
-                    if (original == null)
-                        return null;
-
-                    if (map.ContainsKey(original))
-                        return map[original] == null ? null : new BlockGOTemplate(map[original], actions);
-                    else
-                    {
-                        var go = Instantiate(original);
-                        go.name = original.name;
-
-                        RemoveComponenet<BlockAsset>(go);
-                        RemoveComponenet<MeshFilter>(go);
-                        RemoveComponenet<MeshRenderer>(go);
-
-                        Strip(go);
-                        map[original] = go;
-
-                        if (go == null)
-                            return null;
-
-                        go.hideFlags = HideFlags.HideAndDontSave;
-                        go.SetActive(false);
-                        go.transform.SetParent(root.transform);
-
-                        return new BlockGOTemplate(go, actions);
-                    }
-                }
-
-                private void Strip(GameObject go)
-                {
-                    if (go.transform.childCount == 0)
-                    {
-                        if (!HaveComponenets(go))
-                        {
-                            GameObject parent = null;
-                            if (go.transform.parent != null && go.transform.parent.childCount == 1)
-                                parent = go.transform.parent.gameObject;
-
-                            GameObjectUtil.SafeDestroy(go);
-
-                            if (parent != null)
-                                Strip(parent);
-                        }
-                    }
-                    else
-                    {
-                        for (int i = 0; i < go.transform.childCount; i++)
-                            Strip(go.transform.GetChild(i).gameObject);
-                    }
-                }
-
-                private bool HaveComponenets(GameObject gameObject)
-                {
-                    gameObject.GetComponents(components);
-                    return components.Count > 1;
-                }
-
-                private void RemoveComponenet<T>(GameObject gameObject) where T : Component
-                {
-                    var com = gameObject.GetComponent<T>();
-                    if (com != null)
-                        GameObjectUtil.SafeDestroy(com);
-                }
-            }
-
             private class BlockAssetGenerator
             {
                 List<ActionsGroup> actionsGroups;
@@ -437,13 +354,113 @@ namespace AutoLevel
                 }
             }
 
+            public class RepoMeshResource : System.IDisposable
+            {
+                private Runtime                         repo; 
+                private List<GameObject>                gameObjects;
+                private List<MeshCombiner.RendererInfo> renderers;
+                private GameObject                      root;
+
+                public RepoMeshResource(Runtime repo)
+                {
+                    this.repo = repo;
+                    gameObjects = new List<GameObject>();
+                    renderers = new List<MeshCombiner.RendererInfo>();
+
+                    root = new GameObject("repo_mesh_resouece");
+                    root.hideFlags = HideFlags.HideAndDontSave;
+
+                    for (int i = 0; i < repo.Blueprints.Count; i++)
+                    {
+                        var bp = repo.Blueprints[i];
+
+                        if(bp.gameObject == null)
+                        {
+                            renderers.Add(new MeshCombiner.RendererInfo());
+                            gameObjects.Add(null);
+                            continue;
+                        }
+
+                        var go = Instantiate(bp.gameObject);
+                        DestroyImmediate(go.GetComponent<BlockAsset>(), false);
+
+                        var info = MeshCombiner.Combine(MeshCombiner.GetAndRemoveRenderers(go.transform));
+
+                        Strip(go.transform);
+
+                        if(go != null)
+                        {
+                            go.hideFlags = HideFlags.HideAndDontSave;
+                            go.name = bp.gameObject.name;
+                            go.transform.Reset();
+                            go.transform.SetParent(root.transform);
+                            go.SetActive(false);
+                        }
+
+                        foreach(var action in bp.actions)
+                            ActionsUtility.ApplyAction(info.mesh, action);
+                        info.mesh.hideFlags = HideFlags.DontUnloadUnusedAsset;
+#if AUTOLEVEL_DEBUG
+                        info.mesh.name += ActionsUtility.GetActionPrefix(actions);
+#endif
+
+                        //TODO : share game objects and materials
+                        renderers.Add(info);
+                        gameObjects.Add(go);
+                    } 
+                }
+
+                void Strip(Transform target)
+                {
+                    for (int i = target.childCount - 1; i > -1; i--)
+                        Strip(target.GetChild(i));
+
+                    if (target.childCount == 0 && !target.gameObject.HaveComponents())
+                        DestroyImmediate(target.gameObject, false);
+                }
+
+                public GameObject GetGameObject(int index)
+                {
+                    var original = gameObjects[index];
+
+                    if (original == null)
+                        return null;
+
+                    var go = Instantiate(original);
+                    go.name = original.name;
+                    go.SetActive(true);
+                    go.hideFlags = HideFlags.None;
+
+                    var p = new GameObject(go.name);
+                    var actions = repo.Blueprints[index].actions;
+                    foreach (var action in actions)
+                        ActionsUtility.ApplyAction(go, action);
+
+                    go.transform.SetParent(p.transform);
+
+                    return p;
+                }
+
+                public MeshCombiner.RendererInfo GetRendererInfo(int index)
+                {
+                    return renderers[index];
+                }
+
+                public void Dispose()
+                {
+                    foreach (var info in renderers)
+                        GameObjectUtil.SafeDestroy(info.mesh);
+
+                    GameObjectUtil.SafeDestroy(root);
+                }
+            }
+
             private BlocksRepo                  repo;
-            private Transform                   templates_root;
             private List<ActionsGroup>          actionsGroups;
 
             private BiDirectionalList<int>      BlocksHash;
-            private List<BlockResources>        Resources;
-            private List<BlockGOTemplate>       gameObjecstsTemplates;
+            private List<BlockGOBlueprint>      Blueprints;
+            private RepoMeshResource            MeshResource;
 
             private List<int>                   layerStartIndex;
             private List<List<int>>             groupStartIndex;
@@ -457,6 +474,7 @@ namespace AutoLevel
             public int                          LayersCount { get; private set; }
             private Dictionary<int, List<int>>  upperBlocks;
             private List<BlockPlacement>        blocksPlacement;
+
             public IEnumerable<int> GetUpperLayerBlocks(int block)
             {
                 if(upperBlocks.ContainsKey(block))
@@ -489,17 +507,18 @@ namespace AutoLevel
             /// </summary>
             public int[][][][] groupCounter { get; private set; }
 
-            public int BlocksCount => Resources.Count;
+            public int BlocksCount => Blueprints.Count;
             public bool ContainsBlock(int hash) => BlocksHash.Contains(hash);
             public int GetBlockHash(int index) => BlocksHash[index];
             public int GetBlockIndex(int hash) => BlocksHash.GetIndex(hash);
-            public BlockResources GetBlockResourcesByHash(int hash) => Resources[BlocksHash.GetIndex(hash)];
-            public BlockResources GetBlockResources(int index) => Resources[index];
-            public GameObject CreateGameObject(int index)
+            public RepoMeshResource GetMeshResource()
             {
-                var template = gameObjecstsTemplates[index];
-                return template != null ? template.Create() : null;
+                if (MeshResource == null)
+                    MeshResource = new RepoMeshResource(this);
+                return MeshResource;
             }
+            public GameObject GetBlockAsset(int index) => Blueprints[index].gameObject;
+            public GameObject CreateGameObject(int index) => Blueprints[index].Create();
             public IEnumerable<float> GetBlocksWeight() => weights;
 
             /// Groups ///
@@ -655,13 +674,9 @@ namespace AutoLevel
                         list.Add(range.y);
                 }
 
-                var templateGenerator = new BlockGOTemplateGenerator();
-                templates_root = templateGenerator.root.transform;
-
                 Dictionary<int, int> wgHashToIndex = HashToIndexLookup(weightGroups);
 
-                Resources = new List<BlockResources>(allBlocks.Count);
-                gameObjecstsTemplates = new List<BlockGOTemplate>();
+                Blueprints = new List<BlockGOBlueprint>();
                 BlocksHash = new BiDirectionalList<int>();
                 weights = new List<float>(allBlocks.Count);
                 blocksPlacement = new List<BlockPlacement>(allBlocks.Count);
@@ -674,10 +689,9 @@ namespace AutoLevel
                 {
                     var block = allBlocks[i];
                     BlocksHash.Add(block.GetHashCode());
-                    Resources.Add(block.blockResources);
-                    gameObjecstsTemplates.Add(templateGenerator.Generate(block.gameObject, block.actions));
+                    Blueprints.Add(new BlockGOBlueprint(block.gameObject, block.actions));
 
-                    BlockConnections.Add(block.compositeIds);
+                    BlockConnections.Add(repo.useFilling ? block.compositeIds : block.baseIds);
                     weights.Add(block.weight);
                     blocksPerWeightGroup[wgHashToIndex[block.weightGroup]].Add(i);
 
@@ -773,7 +787,7 @@ namespace AutoLevel
                     Connections[od][conn.Item3].Remove(conn.Item2);
                 }
 
-                Profiling.LogAndRemoveTimer($"time to generate connections of {Resources.Count} ", generate_blocks_pk);
+                Profiling.LogAndRemoveTimer($"time to generate connections of {Blueprints.Count} ", generate_blocks_pk);
 
             }
 
@@ -841,19 +855,7 @@ namespace AutoLevel
 
             public void Dispose()
             {
-                if (Resources == null)
-                    return;
-
-                for (int i = 0; i < Resources.Count; i++)
-                {
-                    var mesh = Resources[i].mesh;
-                    if (mesh == null)
-                        continue;
-
-                    GameObjectUtil.SafeDestroy(mesh);
-                }
-
-                GameObjectUtil.SafeDestroy(templates_root.gameObject);
+                MeshResource?.Dispose();
             }
         }
     }

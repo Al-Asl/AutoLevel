@@ -92,6 +92,8 @@ namespace AutoLevel
 
         protected virtual void OnDisable()
         {
+            repo.Dispose();
+
             settingsSO.Dispose();
             handleRes.Dispose();
             DestroyImmediate(settingsEditor);
@@ -187,7 +189,7 @@ namespace AutoLevel
                 {
                     repo = new BlocksRepoSO(repoComp);
                     BlocksRepoSO.GetRepoEntities(repo.target ,out allRepoEntities,out activeRepoEntities);
-                    BlocksRepoSO.IntegrityCheckAndAllChildren(repo.target);
+                    BlocksRepoSO.ChildrenIntegrityCheck(repo.target);
                     InitGroups();
                     Initialize();
                     isInitialized = true;
@@ -207,14 +209,20 @@ namespace AutoLevel
             if (repo == null)
                 return;
 
-            var blocks = GetBlocksIt(AssetType.AllBlockAssetAndBigBlockAsset);
+            var blocks = GetBlocksIt(AssetType.AllBlockAssetAndBigBlockAsset).ToList();
 
             //sort by the closest
             var targetPos = ((MonoBehaviour)target).transform.position;
-            blocks = blocks.OrderBy((block) => Vector3.Distance(block.Item2, targetPos));
+            blocks.Sort((a,b) => Vector3.Distance(a.Item2, targetPos).CompareTo(
+                Vector3.Distance(b.Item2, targetPos)));
 
             connections.Clear();
-            ConnectionsUtility.GetConnectionsList(blocks.Select((block) => block.Item1), connections);
+            foreach(var conn in ConnectionsUtility.GetConnectionsList(
+                repo.useFilling ? blocks.Select((block) => block.Item1.compositeIds) :
+                blocks.Select((block) => block.Item1.baseIds)))
+            {
+                connections.Add(new Connection(blocks[conn.Item1].Item1, blocks[conn.Item2].Item1, conn.Item3));
+            }
 
             int index = 0;
             for (int i = 0; i < connections.Count; i++)
@@ -243,7 +251,20 @@ namespace AutoLevel
 
         protected int GetGroupIndex(int group) => System.Array.FindIndex(allGroups, (g) => g.GetHashCode() == group);
         protected int GetWeightGroupIndex(int weightGroup) => System.Array.FindIndex(allWeightGroups, (g) => g.GetHashCode() == weightGroup);
-        
+        protected void ShowConnectionsTutorial()
+        {
+            if (!settings.ShowedConnectionTutorial)
+            {
+                SceneView.lastActiveSceneView.ShowNotification(
+                        new GUIContent($"Hold the {settings.banConnectionKey} key to ban connection\n" +
+                        $"Hold the {settings.exclusiveConnectionKey} key to make an exclusive connection\n" +
+                        $"Hold the Shift key to select any face\n " +
+                        $"Use right click to cancel"), 8f);
+                settings.ShowedConnectionTutorial = true;
+                settingsSO.Apply();
+            }
+        }
+
         #region Queries
 
         protected enum AssetType 
@@ -483,19 +504,22 @@ namespace AutoLevel
 
                 foreach (var block in blocks)
                 {
-                    var b = new GameObject(block.Item1.blockAsset.name);
-                    b.hideFlags = HideFlags.HideAndDontSave;
+                    var go = Instantiate(block.Item1.gameObject);
 
-                    b.AddComponent<MeshFilter>().mesh = block.Item1.baseMesh;
-                    b.AddComponent<MeshRenderer>().material = BlockUtility.GetMaterial(block.Item1.gameObject);
-                    foreach (var action in block.Item1.actions)
-                        ActionsUtility.ApplyAction(b, action);
-
-                    var go = new GameObject(block.Item1.blockAsset.name);
+                    go.name = block.Item1.gameObject.name;
                     go.hideFlags = HideFlags.HideAndDontSave;
-                    b.transform.SetParent(go.transform);
 
-                    assetBlocksGO.Add(go);
+                    go.RemoveComponent<BlockAsset>();
+                    go.transform.Reset();
+
+                    foreach (var action in block.Item1.actions)
+                        ActionsUtility.ApplyAction(go, action);
+
+                    var p = new GameObject(go.name);
+                    p.hideFlags = HideFlags.HideAndDontSave;
+                    go.transform.SetParent(p.transform, true);
+
+                    assetBlocksGO.Add(p);
                 }
             }
             else
@@ -644,7 +668,7 @@ namespace AutoLevel
                 foreach (var sideItem in AssetsBlocksSidesIt(activeRepoEntities))
                 {
                     var side = sideItem.Item1;
-                    if (side.d == od && GetSide(side.block.fill, od) == GetSide(src.block.fill, src.d))
+                    if (side.d == od && (!repo.useFilling || GetSide(side.block.fill, od) == GetSide(src.block.fill, src.d)))
                         if (DoBlockSideButton(side, sideItem.Item2, 0.9f))
                         {
                             HandleConnection(src, side);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AlaslTools;
+using System;
 using UnityEngine;
 
 namespace AutoLevel
@@ -46,11 +47,19 @@ namespace AutoLevel
                 Rebuild(new BoundsInt(Vector3Int.zero, levelData.size), i);
         }
 
+        public void ClearAll()
+        {
+            for (int i = 0; i < levelData.LayersCount; i++)
+                Clear(i);
+        }
+
         public abstract void Rebuild(BoundsInt area, int layer);
+        public abstract void Clear(int layer);
 
         public virtual void Dispose()
         {
-
+            if (root != null)
+                GameObjectUtil.SafeDestroy(root.gameObject);
         }
     }
 

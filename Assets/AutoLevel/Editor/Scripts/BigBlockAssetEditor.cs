@@ -354,7 +354,7 @@ namespace AutoLevel
             foreach (var blockItem in GetBlocksIt(AssetType.BlockAsset))
             {
                 var draw = true;
-                if(blockAsset.blockLayer == 0)
+                if(blockAsset.blockLayer == 0 && repo.useFilling)
                 {
                     for (int d = 0; d < 6; d++)
                     {
@@ -407,6 +407,8 @@ namespace AutoLevel
         private void DoConnectionEditing()
         {
             if (connecting)
+            {
+                ShowConnectionsTutorial();
                 DoSideConnection(
                     new BlockSide(data[connectingIndex][0], connectingDir),
                     GetPositionFromBigBlockAsset(data[connectingIndex][0]),
@@ -415,6 +417,7 @@ namespace AutoLevel
                         connecting = false;
                         GenerateConnections(activeConnections);
                     });
+            }
             else
                 foreach (var sideItem in BigBlockSidesIt(blockAsset.target))
                 {

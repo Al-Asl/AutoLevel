@@ -9,40 +9,39 @@ namespace AutoLevel
 
     public class AutoLevelEditorUtility
     {
-        public static void ExportMesh(LevelBuilder builder, string path)
+        public static void ExportMeshAndObjects(LevelBuilder builder, string path)
         {
-            var so = new LevelBuilderEditor.SO(builder);
-            var repo = so.blockRepo.CreateRuntime();
+            var repo = builder.data.BlockRepo.CreateRuntime();
             var partationSize = LevelEditorSettings.GetSettings().settings.ExportSize;
-            ExportMesh(so, repo, path, partationSize);
-            so.Dispose();
+            ExportMeshAndObjects(builder.data, repo, path, partationSize);
             repo.Dispose();
+        }
+
+        public static void ExportMeshAndObjects(ILevelBuilderData builderData,BlocksRepo.Runtime repo,string path, int partationSize = 5)
+        {
+            using (LevelMeshBuilder mbuilder = new LevelMeshBuilder(builderData.LevelData , repo, partationSize))
+            {
+                mbuilder.RebuildAll();
+                mbuilder.ObjectRoot.SetParent(null);
+                ModelExporter.ExportObject(path+".fbx", mbuilder.root.gameObject);
+                mbuilder.ObjectRoot.SetParent(mbuilder.root);
+                PrefabUtility.SaveAsPrefabAsset(mbuilder.ObjectRoot.gameObject,path+".prefab");
+            }
         }
 
         public static void ExportObjects(LevelBuilder builder, string path)
         {
-            var so = new LevelBuilderEditor.SO(builder);
-            var repo = so.blockRepo.CreateRuntime();
-            ExportObjects(so, repo, path);
-            so.Dispose();
+            var repo = builder.data.BlockRepo.CreateRuntime();
+            ExportObjects(builder.data, repo, path);
             repo.Dispose();
         }
 
-        public static void ExportMesh(LevelBuilderEditor.SO builder,BlocksRepo.Runtime repo,string path, int partationSize = 5)
+        public static void ExportObjects(ILevelBuilderData builderData, BlocksRepo.Runtime repo, string path)
         {
-            using (LevelMeshBuilder mbuilder = new LevelMeshBuilder(builder.levelData, repo, partationSize))
+            using (LevelObjectBuilder mbuilder = new LevelObjectBuilder(builderData.LevelData, repo))
             {
                 mbuilder.RebuildAll();
-                ModelExporter.ExportObject(path, mbuilder.root.gameObject);
-            }
-        }
-
-        public static void ExportObjects(LevelBuilderEditor.SO builder, BlocksRepo.Runtime repo, string path)
-        {
-            using (var objectsBuilder = new LevelExtraObjectBuilder(builder.levelData, repo))
-            {
-                objectsBuilder.RebuildAll();
-                PrefabUtility.SaveAsPrefabAsset(objectsBuilder.root.gameObject, path);
+                PrefabUtility.SaveAsPrefabAsset(mbuilder.root.gameObject, path + ".prefab");
             }
         }
 

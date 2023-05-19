@@ -18,6 +18,7 @@ namespace AutoLevel
     public class LevelBuilderWindow : EditorWindow
     {
         private LevelEditorSettingsEditor SettingsEditor;
+        private LevelEditorSettings.Settings settings => SettingsEditor.Settings;
 
         private EditorLevelGroupManager groupManager;
         private List<LevelDataDrawer>   levelDataDrawers = new List<LevelDataDrawer>();
@@ -140,19 +141,22 @@ namespace AutoLevel
             if(GetRepoOfFirstBuilder(selectedGroup).LayersCount > 1)
                 LayerGUI();
 
-            if (GUILayout.Toggle(useSolverMT, "Use Multi Thread", GUI.skin.button) != useSolverMT)
+
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Toggle(useSolverMT, "MT", GUI.skin.button, GUILayout.Width(35)) != useSolverMT)
             {
                 useSolverMT = !useSolverMT;
                 groupManager.Dispose();
                 groupManager = new EditorLevelGroupManager(useSolverMT);
             }
 
-            EditorGUILayout.BeginHorizontal();
 
             if (GUILayout.Button("Rebuild"))
                 Rebuild();
 
-            if(GUILayout.Button("Clear"))
+
+            if (GUILayout.Button("Clear"))
             {
                 if(rebuildBottomLayers)
                     for (int i = 0; i < layer; i++)
@@ -165,7 +169,7 @@ namespace AutoLevel
 
             EditorGUILayout.EndHorizontal();
 
-            if(GUILayout.Button("Save"))
+            if (GUILayout.Button("Save"))
             {
                 var group = groupManager.GetBuilderGroup(selectedGroup);
                 foreach (var builder in group)
@@ -176,11 +180,15 @@ namespace AutoLevel
 
             EditorGUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Export Meshs"))
-                ExportMeshes();
+            if (GUILayout.Toggle(settings.CombineMeshBeforeExport, "MC", GUI.skin.button, GUILayout.Width(35)) !=
+                settings.CombineMeshBeforeExport)
+            {
+                settings.CombineMeshBeforeExport = !settings.CombineMeshBeforeExport;
+                SettingsEditor.Apply();
+            }
 
-            if (GUILayout.Button("Export Objects"))
-                ExportObjects();
+            if (GUILayout.Button("Export"))
+                Export();
 
             EditorGUILayout.EndHorizontal();
 
@@ -246,21 +254,29 @@ namespace AutoLevel
                 Message = "build failed";
         }
 
-        private void ExportMeshes()
+        private void Export()
+        {
+            if (settings.CombineMeshBeforeExport)
+                ExportMeshesAndObjects();
+            else
+                ExportObjects();
+        }
+
+        private void ExportMeshesAndObjects()
         {
             var builders = groupManager.GetBuilderGroup(selectedGroup);
 
-            var path = EditorUtility.OpenFolderPanel("Mesh Export", Application.dataPath, "");
+            var path = EditorUtility.OpenFolderPanel("Mesh And Objects Export", Application.dataPath, "");
             if (string.IsNullOrEmpty(path))
                 return;
 
             foreach (var builder in builders)
             {
-                var filePath = Path.Combine(path, builder.target.name + ".fbx");
+                var filePath = Path.Combine(path, builder.target.name);
                 if (File.Exists(filePath))
                     File.Delete(filePath);
 
-                AutoLevelEditorUtility.ExportMesh(builder.target, filePath);
+                AutoLevelEditorUtility.ExportMeshAndObjects(builder.target, filePath);
             }
         }
 
@@ -274,7 +290,7 @@ namespace AutoLevel
 
             foreach (var builder in builders)
             {
-                var filePath = Path.Combine(path, builder.target.name + ".prefab");
+                var filePath = Path.Combine(path, builder.target.name);
                 if (File.Exists(filePath))
                     File.Delete(filePath);
 

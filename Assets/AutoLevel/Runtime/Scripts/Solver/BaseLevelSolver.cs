@@ -560,16 +560,9 @@ namespace AutoLevel
                     continue;
                 foreach (var block in EnumareteBlocksInWaveCell(n))
                 {
-                    var res = repo.GetBlockResources(block);
-                    var poss = new GameObject();
+                    var poss = repo.CreateGameObject(block);
 
-                    if (res.mesh != null)
-                    {
-                        poss.name = res.mesh.name;
-                        poss.AddComponent<MeshFilter>().sharedMesh = res.mesh;
-                        poss.AddComponent<MeshRenderer>().sharedMaterial = res.material;
-                    }
-                    else
+                    if (poss == null)
                     {
                         var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP), layerIndex).x;
                         var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP), layerIndex).x;

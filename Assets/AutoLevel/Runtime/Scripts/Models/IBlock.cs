@@ -17,8 +17,6 @@ namespace AutoLevel
         int weightGroup { get; }
 
         List<BlockAction> actions { get; }
-        Mesh baseMesh { get; }
-        BlockResources blockResources { get; }
 
         ConnectionsIds compositeIds { get; }
         ConnectionsIds baseIds { get; }
@@ -62,22 +60,6 @@ namespace AutoLevel
         public int weightGroup              => m_blockAsset.weightGroup;
 
         public List<BlockAction> actions    => Variant.actions;
-        public Mesh baseMesh                => BlockUtility.GetMesh(gameObject);
-        public BlockResources blockResources
-        {
-            get
-            {
-                var mesh = baseMesh;
-                if (mesh != null)
-                    mesh = BlockUtility.GenerateMesh(baseMesh, Variant.actions);
-
-                return new BlockResources()
-                {
-                    mesh = mesh,
-                    material = BlockUtility.GetMaterial(gameObject)
-                };
-            }
-        }
 
         public ConnectionsIds compositeIds  => BlockUtility.GetCompositeIds(this);
         public ConnectionsIds baseIds       => Variant.sideIds;
@@ -159,22 +141,6 @@ namespace AutoLevel
         public int weightGroup { get; set; }
 
         public List<BlockAction> actions { get; set; }
-        public Mesh baseMesh => BlockUtility.GetMesh(gameObject);
-        public BlockResources blockResources
-        {
-            get
-            {
-                var mesh = baseMesh;
-                if (mesh != null)
-                    mesh = BlockUtility.GenerateMesh(baseMesh, actions);
-
-                return new BlockResources()
-                {
-                    mesh = mesh,
-                    material = BlockUtility.GetMaterial(gameObject)
-                };
-            }
-        }
 
         public ConnectionsIds compositeIds => BlockUtility.GetCompositeIds(this);
         public ConnectionsIds baseIds { get; set; }

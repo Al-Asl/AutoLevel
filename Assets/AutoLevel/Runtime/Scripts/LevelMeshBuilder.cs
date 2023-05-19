@@ -7,41 +7,60 @@ namespace AutoLevel
 
     public class LevelMeshBuilder : BaseLevelDataBuilder
     {
+        public Transform MeshRoot   => mesh_root;
+        public Transform ObjectRoot => levelObjectBuilder.root;
+
         struct TileGroup
         {
             public Transform transform;
-            public MeshRenderer renderer;
             public Mesh mesh;
+            public MeshRenderer renderer;
             public MeshCollider collider;
         }
 
         private int tilesPerGroup;
 
-        private List<TileGroup[,,]> layers;
+        private List<TileGroup[,,]> meshesPerLayer;
+        private Transform           mesh_root;
+
+        private bool                buildObjects = true;
+        private LevelObjectBuilder  levelObjectBuilder;
+
+        public void EnableObjects(bool enable)
+        {
+            levelObjectBuilder.root.gameObject.SetActive(enable);
+            buildObjects = enable;
+        }
 
         public LevelMeshBuilder(LevelData levelData,
         BlocksRepo.Runtime blockRepo, int tilesPerGroup = 5) : base(levelData, blockRepo)
         {
+            var size = levelData.bounds.size;
             this.tilesPerGroup = tilesPerGroup;
             var groupsSize = Vector3Int.CeilToInt(new Vector3(
-                levelData.bounds.size.x * 1f / tilesPerGroup,
-                levelData.bounds.size.y * 1f / tilesPerGroup,
-                levelData.bounds.size.z * 1f / tilesPerGroup));
+                size.x * 1f / tilesPerGroup,
+                size.y * 1f / tilesPerGroup,
+                size.z * 1f / tilesPerGroup));
 
-            layers = new List<TileGroup[,,]>(levelData.LayersCount);
+            meshesPerLayer      = new List<TileGroup[,,]>(levelData.LayersCount);
+            mesh_root       = new GameObject("mesh_root").transform;
+            mesh_root.SetParent(root);
+
             for (int i = 0; i < levelData.LayersCount; i++)
             {
                 var layer = new TileGroup[groupsSize.z, groupsSize.y, groupsSize.x];
                 var layerTransform = new GameObject($"Layer {i}").transform;
-                layerTransform.transform.SetParent(root);
+                layerTransform.transform.SetParent(mesh_root);
 
                 foreach (var index in SpatialUtil.Enumerate(groupsSize))
                 {
                     var go = new GameObject($"group {index}");
                     go.transform.SetParent(layerTransform);
                     go.transform.localPosition = index * tilesPerGroup;
+
                     var mesh = new Mesh();
                     go.AddComponent<MeshFilter>().mesh = mesh;
+
                     var group = new TileGroup()
                     {
                         mesh = mesh,
@@ -49,120 +68,88 @@ namespace AutoLevel
                         renderer = go.AddComponent<MeshRenderer>(),
                         collider = go.AddComponent<MeshCollider>()
                     };
+
                     layer[index.z, index.y, index.x] = group;
                 }
 
-                layers.Add(layer);
+                meshesPerLayer.Add(layer);
             }
+
+            levelObjectBuilder = new LevelObjectBuilder(levelData, blockRepo);
+            levelObjectBuilder.OverrideBlockCreation((blockIndex) =>
+            {
+                var go = repo.GetMeshResource().GetGameObject(blockIndex);
+
+                if (go == null)
+                    return null;
+
+                var p = new GameObject(go.name);
+                go.transform.SetParent(p.transform, true);
+
+                return p;
+            });
+
+            levelObjectBuilder.root.gameObject.name =  "objects_root";
+            levelObjectBuilder.root.SetParent(root);
         }
 
         public override void Rebuild(BoundsInt area, int layer)
         {
-            root.transform.position = levelData.bounds.position;
+            mesh_root.transform.position = levelData.position;
+
+            RebuildMesh(area, layer);
+            if (buildObjects)
+                levelObjectBuilder.Rebuild(area, layer);
+        }
+
+        private void RebuildMesh(BoundsInt area, int layer)
+        {
             var gStart = area.min / tilesPerGroup;
             var gEnd = (area.max - Vector3Int.one) / tilesPerGroup + Vector3Int.one;
             foreach (var index in SpatialUtil.Enumerate(gStart, gEnd))
                 RebuildGroup(index, layer);
         }
 
-        struct MeshInstance
-        {
-            public Mesh mesh;
-            public Material material;
-            public Vector3 offset;
-        }
-
-        void RebuildGroup(Vector3Int index, int layer)
+        private void RebuildGroup(Vector3Int index, int layer)
         {
             var area = GetGroupBoundary(index);
-            var group = layers[layer][index.z, index.y, index.x];
+            var group = meshesPerLayer[layer][index.z, index.y, index.x];
             var blocks = levelData.GetLayer(layer).Blocks;
 
-            List<MeshInstance> meshes = new List<MeshInstance>(tilesPerGroup * tilesPerGroup * 2);
-            Dictionary<Material, int> materialsHistogram = new Dictionary<Material, int>();
+            List<MeshCombiner.RendererInfo> infos = new List<MeshCombiner.RendererInfo>();
+            var resourceManager = repo.GetMeshResource();
 
             foreach (var i in SpatialUtil.Enumerate(area.min, area.max))
             {
-                var block_h = blocks[i.z, i.y, i.x];
-                if (block_h != -1 && ShouldInclude(i, layer))
+                var block = blocks[i.z, i.y, i.x];
+                if (block != 0 && ShouldInclude(index, layer))
                 {
-                    var block = repo.GetBlockResourcesByHash(block_h);
-                    if (block.mesh != null)
-                    {
-                        if (materialsHistogram.ContainsKey(block.material))
-                            materialsHistogram[block.material]++;
-                        else
-                            materialsHistogram.Add(block.material, 1);
+                    var info = resourceManager.GetRendererInfo(repo.GetBlockIndex(block));
 
-                        meshes.Add(new MeshInstance()
-                        {
-                            mesh = block.mesh,
-                            material = block.material,
-                            offset = i - area.position
-                        });
+                    if (info.mesh != null)
+                    {
+                        info.matrix = Matrix4x4.Translate(i - area.position);
+                        infos.Add(info);
                     }
                 }
             }
-            int materialCount = materialsHistogram.Count;
-            int meshCount = meshes.Count;
 
-            Material[] materials = new Material[materialCount];
-            var counter = 0;
-            var preValue = 0;
-            foreach (var item in materialsHistogram)
-                materials[counter++] = item.Key;
-            for (int i = 0; i < materialCount; i++)
-            {
-                var mat = materials[i];
-                preValue += materialsHistogram[mat];
-                materialsHistogram[mat] = preValue;
-            }
+            var result = MeshCombiner.RendererInfo.Create();
 
-            MeshInstance[] sortedMeshs = new MeshInstance[meshCount];
-            for (int i = 0; i < meshCount; i++)
-            {
-                var mesh = meshes[i];
-                var mIndex = --materialsHistogram[mesh.material];
-                sortedMeshs[mIndex] = mesh;
-            }
+            result.mesh = group.mesh;
+            MeshCombiner.Combine(infos,result);
 
-            CombineInstance[][] combineInstances = new CombineInstance[materialCount][];
-            for (int i = 0; i < materialCount; i++)
-            {
-                int start = materialsHistogram[materials[i]];
-                int end = i == materialCount - 1 ? meshes.Count : materialsHistogram[materials[i + 1]];
-                var ci = new CombineInstance[end - start];
-                for (int j = start; j < end; j++)
-                {
-                    var m = sortedMeshs[j];
-                    ci[j - start] = new CombineInstance()
-                    {
-                        mesh = m.mesh,
-                        transform = Matrix4x4.Translate(m.offset),
-                        subMeshIndex = 0
-                    };
-                }
-                combineInstances[i] = ci;
-            }
+            group.renderer.materials = result.materials.ToArray();
+        }
 
-            CombineInstance[] subMeshes = new CombineInstance[materialCount];
-            for (int i = 0; i < materialCount; i++)
-            {
-                var m = new Mesh();
-                m.CombineMeshes(combineInstances[i]);
-                subMeshes[i] = new CombineInstance()
-                {
-                    mesh = m,
-                    subMeshIndex = 0,
-                    transform = Matrix4x4.identity
-                };
-            }
+        public override void Clear(int layer)
+        {
+            var meshes = meshesPerLayer[layer];
 
-            group.mesh.CombineMeshes(subMeshes, false);
-            group.renderer.sharedMaterials = materials;
+            foreach(var index in SpatialUtil.Enumerate(meshes))
+                meshes[index.z, index.y, index.x].mesh.Clear();
 
-            for (int i = 0; i < materialCount; i++)
-                GameObjectUtil.SafeDestroy(subMeshes[i].mesh);
+            levelObjectBuilder.Clear(layer);
         }
 
         BoundsInt GetGroupBoundary(Vector3Int index)
@@ -175,15 +162,17 @@ namespace AutoLevel
 
         public override void Dispose()
         {
-            for (int i = 0; i < layers.Count; i++)
+            if (root != null)
+                GameObjectUtil.SafeDestroy(root.gameObject);
+
+            for (int i = 0; i < meshesPerLayer.Count; i++)
             {
-                var layer = layers[i];
+                var layer = meshesPerLayer[i];
                 foreach (var index in SpatialUtil.Enumerate(layer))
                     GameObjectUtil.SafeDestroy(layer[index.z, index.y, index.x].mesh);
             }
-            
-            if(root != null)
-                GameObjectUtil.SafeDestroy(root.gameObject);
+
+            levelObjectBuilder?.Dispose();
         }
     }
 

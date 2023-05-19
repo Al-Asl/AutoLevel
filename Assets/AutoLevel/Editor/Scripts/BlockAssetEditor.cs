@@ -43,8 +43,6 @@ namespace AutoLevel
             Undo.undoRedoPerformed += UndoCallback;
         }
 
-
-
         protected override void OnDisable()
         {
             base.OnDisable();
@@ -485,8 +483,7 @@ namespace AutoLevel
                 {
                     if (DoBlockSideButton(sideitem.Item1, sideitem.Item2, 0.9f))
                     {
-                        SceneView.lastActiveSceneView.ShowNotification(
-                        new GUIContent("Use Shift key to select specific face, and use right click to cancel"), 1f);
+                        ShowConnectionsTutorial();
                         connecting = true;
                         connectingDir = sideitem.Item1.d;
                     }
@@ -652,7 +649,9 @@ namespace AutoLevel
             {
                 GenericMenu menu = new GenericMenu();
                 var values = selectedVar.layerSettings.PartOfBaseLayer ?
+                    (repo.useFilling ?  
                     new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Fill } :
+                    new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection }) :
                     new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Layer };
 
                 for (int i = 0; i < values.Length; i++)

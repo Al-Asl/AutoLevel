@@ -19,17 +19,50 @@ namespace AutoLevel
         }
 
         [SerializeField]
-        public List<string>         groups;
+        public bool useFilling = true;
+        [Space]
         [SerializeField]
-        public List<string>         weightGroups;
-
+        public List<string> groups          = new List<string>();
         [SerializeField]
-        public List<ActionsGroup>   actionsGroups;
+        public List<string> weightGroups    = new List<string>();
+        [Space]
+        [SerializeField]
+        public List<ActionsGroup>   actionsGroups = new List<ActionsGroup>()
+        {
+            new ActionsGroup()
+            {
+                name = "Full Rotate On Y",
+                groupActions = new List<ActionsGroup.GroupActions>()
+                {
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.RotateY } },
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.RotateY, BlockAction.RotateY } },
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.RotateY, BlockAction.RotateY ,BlockAction.RotateY } },
+                }
+            },
+            new ActionsGroup()
+            {
+                name = "Rotate On Y",
+                groupActions = new List<ActionsGroup.GroupActions>()
+                {
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.RotateY } },
+                }
+            },
+            new ActionsGroup()
+            {
+                name = "Full Mirror",
+                groupActions = new List<ActionsGroup.GroupActions>()
+                {
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.MirrorX } },
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.MirrorY } },
+                    new ActionsGroup.GroupActions() { actions = new List<BlockAction>(){ BlockAction.MirrorZ } },
+                }
+            },
+        };
 
         [HideInInspector] [SerializeField]
-        public List<Connection>     bannedConnections;
+        public List<Connection>     bannedConnections       = new List<Connection>();
         [HideInInspector] [SerializeField]
-        public List<Connection>     exclusiveConnections;
+        public List<Connection>     exclusiveConnections    = new List<Connection>();
 
         public const string EMPTY_GROUP = "Empty";
         public const string SOLID_GROUP = "Solid";

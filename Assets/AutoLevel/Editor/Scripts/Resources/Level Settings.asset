@@ -15,5 +15,6 @@ MonoBehaviour:
   settings:
     GroupsToggle: 0
     MaxIterations: 10
+    CombineMeshBeforeExport: 1
     ExportSize: 5
     Tool: 0

@@ -48,15 +48,6 @@ namespace AutoLevel
             EditorWindow.CreateWindow<LevelBuilderWindow>("Level Builder Window");
         }
 
-        [MenuItem("GameObject/AutoLevel/Blocks Repo", priority = 16)]
-        public static void CreateRepo()
-        {
-            GameObject repo_go = new GameObject("Blocks Repo");
-            repo_go.AddComponent<BlocksRepo>();
-            Undo.RegisterCreatedObjectUndo(repo_go, "Create Repo");
-            Selection.activeObject = repo_go;
-        }
-
         [MenuItem("GameObject/AutoLevel/Builder", priority = 15)]
         public static void CreateBuilder()
         {
@@ -66,11 +57,31 @@ namespace AutoLevel
             Selection.activeObject = builder_go;
         }
 
-        [MenuItem("GameObject/AutoLevel/BigBlock", priority = 17)]
+        [MenuItem("GameObject/AutoLevel/Blocks Repo", priority = 16)]
+        public static void CreateRepo()
+        {
+            GameObject repo_go = new GameObject("Blocks Repo");
+            repo_go.AddComponent<BlocksRepo>();
+            Undo.RegisterCreatedObjectUndo(repo_go, "Create Repo");
+            Selection.activeObject = repo_go;
+        }
+
+        [MenuItem("GameObject/AutoLevel/Block Asset", priority = 17)]
+        public static void CreateBlockAsset()
+        {
+            GameObject blockAsset_go = new GameObject("Block Asset");
+            blockAsset_go.AddComponent<BlockAsset>();
+            blockAsset_go.transform.SetParent(Selection.activeGameObject.transform);
+            Undo.RegisterCreatedObjectUndo(blockAsset_go, "Create Block Asset");
+            Selection.activeObject = blockAsset_go;
+        }
+
+        [MenuItem("GameObject/AutoLevel/BigBlock", priority = 18)]
         public static void CreateBigBlock()
         {
-            GameObject bigblock_go = new GameObject("bigBlock");
+            GameObject bigblock_go = new GameObject("BigBlock");
             bigblock_go.AddComponent<BigBlockAsset>();
+            bigblock_go.transform.SetParent(Selection.activeGameObject.transform);
             Undo.RegisterCreatedObjectUndo(bigblock_go, "Create BigBlock");
             Selection.activeObject = bigblock_go;
         }

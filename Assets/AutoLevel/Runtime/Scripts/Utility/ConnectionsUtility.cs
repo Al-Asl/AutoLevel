@@ -63,22 +63,24 @@ namespace AutoLevel
 
             return alist;
         }
-        public static void GetConnectionsList(IEnumerable<AssetBlock> blocks, List<Connection> connections) 
+
+        public static IEnumerable<(int,int,int)> GetConnectionsList(IEnumerable<ConnectionsIds> ids) 
         {
-            var i = 0;
-            foreach (var src in blocks)
+            int i = 0 ,j = 0;
+            foreach (var src in ids)
             {
-                foreach (var dst in blocks.Skip(i++))
+                foreach (var dst in ids.Skip(i))
                 {
-                    var dc = src.GetHashCode() == dst.GetHashCode() ? 3 : 6;
+                    var dc = i == j ? 3 : 6;
                     for (int d = 0; d < dc; d++)
-                    {
                         if (src[d] == dst[opposite[d]])
-                            connections.Add(new Connection(src, dst, d));
-                    }
+                            yield return (i, j, d);
+                    j++;
                 }
+                j = ++i;
             }
         }
+
         public static IDGenerator CreateIDGenerator<T>(IEnumerable<T> blocks) where T : IBlock
         {
             var set = new HashSet<int>();

@@ -8,17 +8,17 @@ namespace AutoLevel
     public class BigBlockAsset : MonoBehaviour
     {
         [SerializeField]
-        public int blockLayer;
+        public int  blockLayer;
 
         [SerializeField]
         public bool overrideGroup;
         [SerializeField]
-        public int group;
+        public int  group;
 
         [SerializeField]
         public bool overrideWeightGroup;
         [SerializeField]
-        public int weightGroup;
+        public int  weightGroup;
 
         [SerializeField]
         public List<int> actionsGroups;

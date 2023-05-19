@@ -6,7 +6,6 @@ namespace AutoLevel
 {
 
     [AddComponentMenu("AutoLevel/BlockAsset")]
-    [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class BlockAsset : MonoBehaviour
     {
         [Serializable]

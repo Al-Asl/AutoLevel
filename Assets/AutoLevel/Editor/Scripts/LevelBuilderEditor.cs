@@ -186,23 +186,6 @@ namespace AutoLevel
 
             // execution //
 
-            if (GUILayout.Button("Clear"))
-            {
-                if(builder.rebuild_bottom_layers_editor_only)
-                {
-                    builder.levelData.ClearAllLayers();
-                    builder.ApplyAllLevelLayers();
-                    levelDataDrawer.Clear();
-                }
-                else
-                {
-                    builder.levelData.GetLayer(currentLayer).Clear();
-                    builder.ApplyLevelLayer(currentLayer);
-                    levelDataDrawer.RebuildAll();
-                }
-                SceneView.RepaintAll();
-            }
-
             EditorGUILayout.BeginHorizontal();
 
             if (GUILayout.Toggle(builder.useMutliThreadedSolver, "MT", GUI.skin.button,GUILayout.Width(35)) !=
@@ -220,15 +203,36 @@ namespace AutoLevel
 
             EditorGUILayout.EndHorizontal();
 
+            if (GUILayout.Button("Clear"))
+            {
+                if (builder.rebuild_bottom_layers_editor_only)
+                {
+                    builder.levelData.ClearAllLayers();
+                    builder.ApplyAllLevelLayers();
+                    levelDataDrawer.ClearAll();
+                }
+                else
+                {
+                    builder.levelData.GetLayer(currentLayer).Clear();
+                    builder.ApplyLevelLayer(currentLayer);
+                    levelDataDrawer.RebuildAll();
+                }
+                SceneView.RepaintAll();
+            }
+
             EditorGUILayout.Space();
 
             GUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Export Mesh"))
-                ExportMesh();
+            if (GUILayout.Toggle(settings.CombineMeshBeforeExport, "MC", GUI.skin.button, GUILayout.Width(35)) !=
+                settings.CombineMeshBeforeExport)
+            {
+                settings.CombineMeshBeforeExport = !settings.CombineMeshBeforeExport;
+                SettingsEditor.Apply();
+            }
 
-            if(GUILayout.Button("Export Objects"))
-                ExportGameObjects();
+            if (GUILayout.Button("Export"))
+                Export();
 
             GUILayout.EndHorizontal();
 
@@ -308,6 +312,7 @@ namespace AutoLevel
                 null);
             }
         }
+
         private void IntegrityCheck(LevelBuilder levelBuilder, BlocksRepo.Runtime repo)
         {
             using (var so = new SO(levelBuilder))
@@ -573,19 +578,17 @@ namespace AutoLevel
             return solver.Solve(bounds, layer, settings.MaxIterations);
         }
 
-        private void ExportMesh()
+        private void Export()
         {
-            var path = EditorUtility.SaveFilePanelInProject("Mesh Export", "level ", "fbx", "Mesh Export");
-            if (string.IsNullOrEmpty(path))
-                return;
-            if (System.IO.File.Exists(path))
-                System.IO.File.Delete(path);
-
-            AutoLevelEditorUtility.ExportMesh(builder, repo, path,settings.ExportSize);
+            if (settings.CombineMeshBeforeExport)
+                ExportMeshAndObjects();
+            else
+                ExportObjects();
         }
-        private void ExportGameObjects()
+
+        private void ExportObjects()
         {
-            var path = EditorUtility.SaveFilePanelInProject("Objects Export", "level objects ", "prefab", "Objects Export");
+            var path = EditorUtility.SaveFilePanelInProject("Objects Export", builder.target.name, "", "");
             if (string.IsNullOrEmpty(path))
                 return;
             if (System.IO.File.Exists(path))
@@ -594,6 +597,16 @@ namespace AutoLevel
             AutoLevelEditorUtility.ExportObjects(builder, repo, path);
         }
 
+        private void ExportMeshAndObjects()
+        {
+            var path = EditorUtility.SaveFilePanelInProject("Meshes And Objects Export", builder.target.name, "", "");
+            if (string.IsNullOrEmpty(path))
+                return;
+            if (System.IO.File.Exists(path))
+                System.IO.File.Delete(path);
+
+            AutoLevelEditorUtility.ExportMeshAndObjects(builder, repo, path,settings.ExportSize);
+        }
 
         BoundsInt DrawBoundsGUI(BoundsInt bounds)
         {

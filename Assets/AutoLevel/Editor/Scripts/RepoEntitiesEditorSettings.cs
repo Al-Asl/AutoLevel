@@ -47,6 +47,8 @@ namespace AutoLevel
 
             [HideInInspector]
             public BlockEditMode    EditMode;
+            [HideInInspector]
+            public bool ShowedConnectionTutorial;
         }
 
         [SerializeField]
@@ -55,6 +57,7 @@ namespace AutoLevel
             {
                 DrawSelfConnections = true,
                 MaxConnectionsDrawCount = 30,
+                ShowedConnectionTutorial = false,
             };
     }
 

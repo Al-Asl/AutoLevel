@@ -18,3 +18,4 @@ MonoBehaviour:
     banConnectionKey: 49
     exclusiveConnectionKey: 51
     EditMode: 2
+    ShowedConnectionTutorial: 0

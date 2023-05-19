@@ -60,7 +60,10 @@ namespace AutoLevel
             EditorGUILayout.Space();
 
             Settings.MaxIterations = EditorGUILayout.IntField("Max Iterations", Settings.MaxIterations);
-            Settings.ExportSize = EditorGUILayout.IntField("Export Size", Settings.ExportSize);
+
+            Settings.CombineMeshBeforeExport = GUILayout.Toggle(Settings.CombineMeshBeforeExport, "Combine meshes before export", GUI.skin.button);
+            if (Settings.CombineMeshBeforeExport)
+                Settings.ExportSize = EditorGUILayout.IntField("Export Size", Settings.ExportSize);
 
             GUILayout.EndVertical();
 
@@ -94,6 +97,7 @@ namespace AutoLevel
         {
             GroupsToggle = false,
             MaxIterations = 10,
+            CombineMeshBeforeExport = true,
             ExportSize = 5,
         };
 
@@ -104,9 +108,11 @@ namespace AutoLevel
             [Space]
             public int MaxIterations;
             [Space]
+            public bool CombineMeshBeforeExport;
             public int ExportSize;
             [Space]
             public int Tool;
+
         }
     }
 

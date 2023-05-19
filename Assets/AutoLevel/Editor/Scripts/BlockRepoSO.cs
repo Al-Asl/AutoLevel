@@ -8,6 +8,8 @@ namespace AutoLevel
 {
     public class BlocksRepoSO : BaseSO<BlocksRepo>
     {
+        public bool useFilling;
+
         public List<string>         groups;
         public List<string>         weightGroups;
 
@@ -21,7 +23,13 @@ namespace AutoLevel
 
         public static void IntegrityCheckAndAllChildren(BlocksRepo repo)
         {
-            IntegrityCheck(repo);
+            var so = new BlocksRepoSO(repo);
+            ChildrenIntegrityCheck(repo);
+            so.Dispose();
+        }
+
+        public static void ChildrenIntegrityCheck(BlocksRepo repo)
+        {
             GetRepoEntities(repo, out var all, out var active);
             IntegrityCheck(all);
         }

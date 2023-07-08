@@ -2,9 +2,9 @@
 
 [![Autolevel Trailer](documentation/images/trailer.png)](https://www.youtube.com/watch?v=94toUiUJqB8 "Autolevel Trailer")
 
-Free procural level generator based on WFC algorithm for unity.
+Free procedural level generator based on WFC algorithm for unity.
 
-The target of this package is to create a procural level generator that is controllable, easy to use, and fast to some extent by leveraging the power of the WFC.
+The target of this package is to create a procedural level generator that is controllable, easy to use, and fast to some extent by leveraging the power of the WFC.
 
 ## Features
 * Weight, volume, and boundary constraints

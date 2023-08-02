@@ -12,8 +12,23 @@ namespace AutoLevel
         private Stack<Possibility> stack;
         protected Dictionary<int, int[]>[,,] wave;
 
+        private RingBuffer<Possibility> bannedElements;
+        private List<Choice> choices;
+        private int banCounter;
+
+        class Choice
+        {
+            public int blocksCount;
+            public int offset;
+            public Vector3Int index;
+            public List<int> blocks = new List<int>();
+        }
+
         public LevelSolver(Vector3Int size) : base(size)
         {
+            bannedElements = new RingBuffer<Possibility>(100);
+            choices = new List<Choice>();
+
             stack = new Stack<Possibility>(size.x);
             wave = new Dictionary<int, int[]>[size.z, size.y, size.x];
             foreach (var index in SpatialUtil.Enumerate(size))
@@ -31,6 +46,10 @@ namespace AutoLevel
 
         protected override void Clear()
         {
+            banCounter = 0;
+            bannedElements.Clear();
+            choices.Clear();
+
             foreach (var index in SolverVolume)
                 wave[index.z, index.y, index.x].Clear();
             stack.Clear();
@@ -53,6 +72,11 @@ namespace AutoLevel
                 foreach (var index in SolverVolume)
                 {
                     FillUpperCell(index, counter);
+
+#if AUTOLEVEL_DEBUG
+                    if (wave[index.z, index.y, index.x].Count == 0)
+                        throw new BuildFailedException(SolveStage.Fill, index);
+#endif
                 }
 
             }
@@ -290,6 +314,7 @@ namespace AutoLevel
             while (stack.Count > 0)
             {
                 var poss = stack.Pop();
+
                 for (int d = 0; d < 6; d++)
                 {
                     var ni = poss.index + delta[d];
@@ -307,7 +332,11 @@ namespace AutoLevel
 
                         counter[d]--;
                         if (counter[d] == 0)
-                            Ban(new Possibility(ni, block));
+                        {
+                            var p = new Possibility(ni, block);
+                            AddBanToBackTrace(p);
+                            Ban(p);
+                        }
 
                     #if AUTOLEVEL_DEBUG
                         if (nwc.Count == 0)
@@ -323,7 +352,7 @@ namespace AutoLevel
         {
             float minEntropy = float.MaxValue;
             Vector3Int minIndex = -Vector3Int.one;
-
+            int[] blocks = null;
 
             foreach (var index in SolverVolume)
             {
@@ -333,6 +362,15 @@ namespace AutoLevel
 #if AUTOLEVEL_DEBUG
                     throw new BuildFailedException(SolveStage.Observe, index);
 #else
+
+                    if(BackTrace(out var Choice))
+                    {
+                        AddChoiceToBackTrace(Choice);
+                        ApplyChoise(Choice, GetBlocks(Choice.index));
+
+                        return Result.Ongoing;
+                    }
+
                     return Result.Fail;
 #endif
                 }
@@ -352,20 +390,40 @@ namespace AutoLevel
             if (minIndex == -Vector3Int.one)
                 return Result.Success;
 
-            var wc = wave[minIndex.z, minIndex.y, minIndex.x];
+            blocks = GetBlocks(minIndex);
+            var remain = StablePick(blocks);
+
+#if AUTOLEVEL_DEBUG
+            choices_debug.Enqueue(new Possibility(minIndex, blocks[remain]));
+#endif
+            var choise = new Possibility(minIndex, blocks[remain]);
+            AddChoiceToBackTrace(choise);
+            ApplyChoise(choise, blocks);
+
+            return Result.Ongoing;
+        }
+
+        private void ApplyChoise(Possibility choise,int[] blocks)
+        {
+            for (int i = 0; i < blocks.Length; i++)
+                if (blocks[i] != choise.block)
+                {
+                    var p = new Possibility(choise.index, blocks[i]);
+                    AddBanToBackTrace(p);
+                    Ban(p);
+                }
+        }
+
+        private int[] GetBlocks(Vector3Int index)
+        {
+            var wc = wave[index.z, index.y, index.x];
             int[] blocks = new int[wc.Count];
             {
                 int i = 0;
-                foreach (var index in wc)
-                    blocks[i++] = index.Key;
+                foreach (var block in wc)
+                    blocks[i++] = block.Key;
             }
-            var remain = StablePick(blocks);
-
-            for (int i = 0; i < blocks.Length; i++)
-                if (i != remain)
-                    Ban(new Possibility(minIndex, blocks[i]));
-
-            return Result.Ongoing;
+            return blocks;
         }
 
         protected override void Ban(Possibility poss)
@@ -381,6 +439,164 @@ namespace AutoLevel
         protected override IEnumerable<int> EnumareteBlocksInWaveCell(Vector3Int index)
         {
             return wave[index.z, index.y, index.x].Select((pair) => pair.Key);
+        }
+
+        private bool BackTrace(out Possibility p)
+        {
+            p = default;
+            RemoveUnvalidChoices();
+            if (choices.Count == 0)
+                return false;
+
+            var c = choices[choices.Count - 1];
+
+            //back propagation
+            {
+                var size = banCounter - c.offset;
+                var toCount = new List<Possibility>(size);
+
+                int i = 0; Possibility poss;
+                while (bannedElements.TryPop(out poss))
+                {
+                    if ( i++ == size)
+                        break;
+
+                    toCount.Add(poss);
+                    Unban(poss);
+                }
+                for (int j = 0; j < toCount.Count; j++)
+                    Recount(toCount[j]);
+                banCounter = c.offset;
+            }
+
+            //picking new choice
+            var wc = wave[c.index.z, c.index.y, c.index.x];
+            var result = new List<int>();
+            foreach (var b in wc)
+                if (!c.blocks.Contains(b.Key))
+                    result.Add(b.Key);
+            p = new Possibility() { index = c.index, block = result[StablePick(result)] };
+
+            return true;
+        }
+
+        private void Unban(Possibility poss)
+        {
+            weights[poss.index.z, poss.index.y, poss.index.x] += blockWeights[poss.block];
+            var wc = wave[poss.index.z, poss.index.y, poss.index.x];
+            if (wc.Count == 1)
+                blocksCounter[wc.First().Key]--;
+            wc[poss.block] = new int[6];
+        }
+
+        private void Recount(Possibility poss)
+        {
+            var wc = wave[poss.index.z, poss.index.y, poss.index.x];
+
+            for (int d = 0; d < 6; d++)
+            {
+                var ni = poss.index + delta[d];
+                if (OnBoundary(ni))
+                {
+                    wc[poss.block][opposite[d]] = 1;
+                    continue;
+                }
+
+                var blocks = repo.Connections[d][poss.block];
+                var nwc = wave[ni.z, ni.y, ni.x];
+
+                foreach (var block in blocks)
+                {
+                    if (!nwc.ContainsKey(block))
+                        continue;
+
+                    wc[poss.block][opposite[d]]++;
+                }
+            }
+        }
+
+        private void AddChoiceToBackTrace(Possibility p)
+        {
+            var index = choices.FindIndex((c) => c.index == p.index);
+            if (index == -1)
+            {
+                choices.Add(new Choice()
+                {
+                    index = p.index,
+                    blocksCount = wave[p.index.z, p.index.y, p.index.x].Count,
+                    offset = banCounter,
+                    blocks = new List<int>() { p.block }
+                });
+            }
+            else
+                choices[index].blocks.Add(p.block);
+        }
+
+        private void RemoveUnvalidChoices()
+        {
+            for (int i = choices.Count - 1; i > -1; i--)
+            {
+                var choice = choices[i];
+                if (banCounter - choice.offset > bannedElements.Count ||
+                    choice.blocks.Count == choice.blocksCount)
+                    choices.RemoveAt(i);
+            }
+        }
+
+        private void AddBanToBackTrace(Possibility p)
+        {
+            bannedElements.Push(p);
+            banCounter++;
+        }
+
+        private Dictionary<int, int[]>[,,] CopyWave()
+        {
+            var copy = new Dictionary<int, int[]>[size.z, size.y, size.x];
+
+            foreach (var index in SolverVolume)
+            {
+                var wc = wave[index.z, index.y, index.x];
+                var cwc = new Dictionary<int, int[]>();
+                foreach (var pair in wc)
+                {
+                    var cc = new int[6];
+                    for (int d = 0; d < 6; d++)
+                        cc[d] = pair.Value[d];
+                    cwc[pair.Key] = cc;
+                }
+                copy[index.z, index.y, index.x] = cwc;
+            }
+
+            return copy;
+        }
+
+        private bool CompareWave(Dictionary<int, int[]>[,,] a, Dictionary<int, int[]>[,,] b)
+        {
+            bool pass = true;
+
+            foreach (var index in SolverVolume)
+            {
+                var wc = a[index.z, index.y, index.x];
+                var cwc = b[index.z, index.y, index.x];
+                foreach (var pair in wc)
+                {
+                    if (!cwc.ContainsKey(pair.Key))
+                    {
+                        Debug.Log($"at {index}, key not found {pair.Key}");
+                        pass = false;
+                    }
+
+                    for (int d = 0; d < 6; d++)
+                    {
+                        if (cwc[pair.Key][d] != pair.Value[d])
+                        {
+                            Debug.Log($"at {index}, at d {d} block {pair.Key}, {cwc[pair.Key][d]} vs {pair.Value[d]}");
+                            pass = false;
+                        }
+                    }
+                }
+            }
+            return pass;
         }
     }
 }

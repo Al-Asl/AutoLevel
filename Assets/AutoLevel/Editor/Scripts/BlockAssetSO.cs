@@ -21,7 +21,7 @@ namespace AutoLevel
         public static void IntegrityCheck(BlockAsset blockAsset) 
         {  var so = new BlockAssetSO(blockAsset); so.Dispose(); }
 
-        //some times the unity method failed, not sure why!
+        //some times the unity method fail, not sure why!
         private static T GetComponentInParent<T>(Transform transform) 
             where T : Component
         {

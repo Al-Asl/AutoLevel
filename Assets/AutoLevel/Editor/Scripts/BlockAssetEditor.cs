@@ -250,7 +250,8 @@ namespace AutoLevel
             if (connecting)
                 DrawAssetsBlocksSides(activeRepoEntities.Where((asset) => asset != blockAsset.target));
             else
-                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target), selectedVar.layerSettings.layer);
+                DoBlocksSelectionButtons(activeRepoEntities.Where((asset) => asset != blockAsset.target),
+                    settings.EditMode == BlockEditMode.None ? 0 : selectedVar.layerSettings.layer);
 
             DoBlockToBigBlockConnectionsControls();
 
@@ -563,11 +564,10 @@ namespace AutoLevel
                     DrawBlockOutlineConnection(GetBlockPosition(block), GetBlockPosition(depBlock) , NiceColors.Pistachio);
             }
 
-            var targetLayer = layerSettings.layer - 1;
 
             foreach (var block in GetBlocksIt(AssetType.BlockAsset))
             {
-                if (block.Item1.layerSettings.layer == targetLayer)
+                if (block.Item1.layerSettings.layer < layerSettings.layer)
                 {
                     if (DoBlockButton(block.Item1, block.Item2))
                     {
@@ -645,14 +645,21 @@ namespace AutoLevel
 
             EditorGUI.EndDisabledGroup();
 
-            if (GUILayout.Button(settings.EditMode.ToString()))
-            {
-                GenericMenu menu = new GenericMenu();
-                var values = selectedVar.layerSettings.PartOfBaseLayer ?
-                    (repo.useFilling ?  
+            var values = selectedVar.layerSettings.PartOfBaseLayer ?
+                    (repo.useFilling ?
                     new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Fill } :
                     new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection }) :
                     new BlockEditMode[] { BlockEditMode.None, BlockEditMode.Connection, BlockEditMode.Layer };
+
+            if(System.Array.FindIndex(values,(v) => v == settings.EditMode) == -1)
+            {
+                settings.EditMode = values[0];
+                settingsSO.Apply();
+            }
+
+            if (GUILayout.Button(settings.EditMode.ToString()))
+            {
+                GenericMenu menu = new GenericMenu();
 
                 for (int i = 0; i < values.Length; i++)
                 {

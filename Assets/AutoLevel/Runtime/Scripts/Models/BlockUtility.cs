@@ -31,8 +31,11 @@ namespace AutoLevel
         public static int GenerateHash(IBlock block)
         {
             return new XXHash(1).
-                //Append(mesh != null ? block.baseMesh.name.GetHashCode() : 0).
                 Append(block.hasGameObject ? block.gameObject.name.GetHashCode() : 0).
+                Append(block.bigBlock != null ? block.bigBlock.name.GetHashCode() : 0).
+                Append(block.weight).
+                Append(block.weightGroup).
+                Append(block.group).
                 Append(block.compositeIds.GetHashCode()).
                 Append(ActionsUtility.GetActionsHash(block.actions)).
                 Append(block.layerSettings.layer);

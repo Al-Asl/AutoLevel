@@ -116,7 +116,7 @@ namespace AutoLevel
             this.weight         = weight;
             this.layerSettings  = new LayerSettings(layerSettings);
         }
-        public StandaloneBlock(int group,int weightGroup, int fill, float weight,int layer)
+        public StandaloneBlock(int group,int weightGroup, int fill, int layer)
         {
             this.actions        = new List<BlockAction>();
             this.gameObject     = null;
@@ -125,7 +125,7 @@ namespace AutoLevel
             this.weightGroup    = weightGroup;
             this.group          = group;
             this.fill           = fill;
-            this.weight         = weight;
+            this.weight         = 1f;
             this.layerSettings  = new LayerSettings(layer);
         }
 

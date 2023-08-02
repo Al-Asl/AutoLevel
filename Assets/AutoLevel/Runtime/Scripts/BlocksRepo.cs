@@ -89,7 +89,7 @@ namespace AutoLevel
 
         public int GetLayersCount() => GetLayersCount(GetComponentsInChildren<BlockAsset>());
 
-        private static int GetLayersCount(IEnumerable<BlockAsset> assets)
+        public static int GetLayersCount(IEnumerable<BlockAsset> assets)
         {
             return BlockAsset.GetBlocksEnum(assets).Max((block) => block.layerSettings.layer) + 1;
         }

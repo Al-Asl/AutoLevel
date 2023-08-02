@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using AlaslTools;
 
@@ -326,16 +326,20 @@ namespace AutoLevel
             for (int i = 0; i < repo.BlocksCount; i++)
                 weightsSum += blockWeights[i];
 
+#if AUTOLEVEL_DEBUG
+            choices_debug.Clear();
+#endif
+
             Clear();
         }
 
-        protected int StablePick(int[] blocks)
+        protected int StablePick(IList<int> blocks)
         {
             float invBCount = 1f / blocksCount;
             float invWeightsSum = 1f / weightsSum;
 
             float sum = 0;
-            for (int i = 0; i < blocks.Length; i++)
+            for (int i = 0; i < blocks.Count; i++)
             {
                 var b = blocks[i]; var weight = blockWeights[b];
                 //exclude what reaches the threshold
@@ -345,7 +349,7 @@ namespace AutoLevel
 
             var r = GetNextRand(rand) * sum;
             sum = 0;
-            for (int i = 0; i < blocks.Length; i++)
+            for (int i = 0; i < blocks.Count; i++)
             {
                 var b = blocks[i]; var weight = blockWeights[b];
                 if ((blocksCounter[b] + 1) * invBCount < weight * invWeightsSum)
@@ -358,20 +362,20 @@ namespace AutoLevel
 
             return Pick(blocks);
         }
-        protected int Pick(int[] blocks)
+        protected int Pick(IList<int> blocks)
         {
             float sum = 0;
-            for (int i = 0; i < blocks.Length; i++)
+            for (int i = 0; i < blocks.Count; i++)
                 sum += blockWeights[blocks[i]];
             var r = GetNextRand(rand) * sum;
             sum = 0;
-            for (int i = 0; i < blocks.Length; i++)
+            for (int i = 0; i < blocks.Count; i++)
             {
                 sum += blockWeights[blocks[i]];
                 if (sum > r)
                     return i;
             }
-            return blocks.Length - 1;
+            return blocks.Count - 1;
         }
         protected float GetNextRand(System.Random rand)
         {
@@ -504,6 +508,15 @@ namespace AutoLevel
             }
         }
 
+        protected bool OnBoundary(Vector3Int index) => OnBoundary(index.x, index.y, index.z, Vector3Int.zero, solveBounds.size);
+        protected bool OnBoundary(int x, int y, int z, Vector3Int start, Vector3Int end)
+        {
+            return (x < start.x || y < start.y || z < start.z ||
+                x >= end.x || y >= end.y || z >= end.z);
+        }
+
+#if AUTOLEVEL_DEBUG
+
         private bool VerifyWave()
         {
             foreach(var index in SolverVolume)
@@ -518,22 +531,27 @@ namespace AutoLevel
             return true;
         }
 
+        protected Queue<Possibility> choices_debug = new Queue<Possibility>();
+
         protected void LogWave(Vector3Int index)
         {
             var leveIndex = solveBounds.min + index;
             var wPos = levelData.position + leveIndex;
 
-            var root = new GameObject("Autolevel fail log");
-            root.transform.position = wPos;
+            var root = new GameObject($"Autolevel fail log");
+            root.transform.position = levelData.position;
 
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.transform.position = wPos + Vector3.one * 0.5f;
-            cube.transform.SetParent(root.transform);
-
-#if UNITY_EDITOR
-            if(UnityEditor.EditorApplication.isPlaying)
-                cube.GetComponent<MeshRenderer>().material.color = Color.red;
-#endif
+            {
+                int i = 0;
+                while (choices_debug.Count > 0)
+                {
+                    var c = choices_debug.Dequeue();
+                    var go = CreateDebugBlock(c.block);
+                    go.name += $" {c.index} {i++}";
+                    go.transform.SetParent(root.transform);
+                    go.transform.localPosition = solveBounds.min + c.index;
+                }
+            }
 
             string message = "build failed \n";
             message += "input wave info:\n";
@@ -550,30 +568,35 @@ namespace AutoLevel
 
             }
 
+            var failedCell = new GameObject($"failed cell {index}");
+            failedCell.transform.SetParent(root.transform);
+            failedCell.transform.localPosition = leveIndex;
+
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.position = wPos + Vector3.one * 0.5f;
+            cube.transform.SetParent(failedCell.transform);
+#if UNITY_EDITOR
+            if (UnityEditor.EditorApplication.isPlaying)
+#endif
+            cube.GetComponent<MeshRenderer>().material.color = Color.red;
+
+            
+
             for (int d = 0; d < 6; d++)
             {
                 var n = index + delta[d];
-                var cell = new GameObject(n.ToString());
-                cell.transform.SetParent(root.transform);
-                cell.transform.localPosition = delta[d];
+                
                 if (OnBoundary(n))
                     continue;
+
+                var cell = new GameObject(n.ToString());
+                cell.transform.SetParent(failedCell.transform);
+                cell.transform.localPosition = delta[d];
+
                 foreach (var block in EnumareteBlocksInWaveCell(n))
                 {
-                    var poss = repo.CreateGameObject(block);
-
-                    if (poss == null)
-                    {
-                        var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP), layerIndex).x;
-                        var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP), layerIndex).x;
-
-                        if (block == solid)
-                            poss.name = BlocksRepo.SOLID_GROUP;
-                        else if (block == empty)
-                            poss.name = BlocksRepo.EMPTY_GROUP;
-                    }
-
-                    poss.transform.SetParent(cell.transform, false);
+                    var blockGO = CreateDebugBlock(block);
+                    blockGO.transform.SetParent(cell.transform, false);
                 }
 
                 if(inputWave != null)
@@ -592,11 +615,26 @@ namespace AutoLevel
             Debug.Log(message, cube);
         }
 
-        protected bool OnBoundary(Vector3Int index) => OnBoundary(index.x, index.y, index.z, Vector3Int.zero, solveBounds.size);
-        protected bool OnBoundary(int x, int y, int z, Vector3Int start, Vector3Int end)
+        GameObject CreateDebugBlock(int block)
         {
-            return (x < start.x || y < start.y || z < start.z ||
-                x >= end.x || y >= end.y || z >= end.z);
+            var solid = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.SOLID_GROUP), layerIndex).x;
+            var empty = repo.GetGroupRange(repo.GetGroupIndex(BlocksRepo.EMPTY_GROUP), layerIndex).x;
+
+            var go = repo.CreateGameObject(block);
+
+            if (go == null)
+            {
+                go = new GameObject();
+
+                if (block == solid)
+                    go.name = BlocksRepo.SOLID_GROUP;
+                else if (block == empty)
+                    go.name = BlocksRepo.EMPTY_GROUP;
+            }
+
+            return go;
         }
+
+#endif
     }
 }

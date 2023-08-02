@@ -465,7 +465,7 @@ namespace AutoLevel
             }
             else if ( layer < currentLayer)
             {
-                if (layer > 0)
+                if (layer >= 0)
                 {
                     builder.levelData.GetLayer(currentLayer).Clear();
                     builder.ApplyLevelLayer(currentLayer);

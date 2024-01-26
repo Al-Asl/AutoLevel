@@ -50,4 +50,4 @@ When selecting a `Block Asset,` there is an option called filling in the scene v
 * Keep in mind that the Building performance depends on two factors the size of the builder and the number of blocks produced by the repo. You can get better performance by only building where needed using multiple builders. Also, using constraints can reduce the building time significantly.
 * Multi-threaded solver can only give a better performance where constraints are used with a heavy load task and could yield up to 3x the original performance.
 
-If you have any question or suggestion please join us on [Discord](https://discord.gg/7DWZAQUh)
+If you have any question or suggestion please join us on [Discord](https://discord.gg/yKMFA3ZE5H)
